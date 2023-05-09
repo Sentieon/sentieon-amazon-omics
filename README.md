@@ -17,7 +17,7 @@ To use the license server for Amazon Omics, you will need to provide Sentieon (s
 
 ### Step 1: build the Sentieon container image
 
-The following files are in the (`container`)[/container] directory:
+The following files are in the [`container`](/container) directory:
 * `sentieon_omics.dockerfile`: A dockerfile that can be used to create a Sentieon container image for Amazon Omics
 * `omics_credentials.sh`: a shell script to perform license authentication on Amazon Omics
 
@@ -84,7 +84,7 @@ source /opt/sentieon/omics_credentials.sh <SENTIEON_LICENSE> <CANONICAL_USER_ID>
 ```
 Where `<SENTIEON_LICENSE>` is the FQDN and port of the Sentieon license server and  `<CANONICAL_USER_ID>` is the AWS canonical user ID of the account running the workflow.
 
-Example workflows can be found in the (`examples`)[/examples] directory and complete workflow implementations can be found in the (`workflows`)[/workflows] directory.
+Example workflows can be found in the [`examples`](/examples) directory and complete workflow implementations can be found in the [`workflows`](/workflows) directory.
 
 #### WDL
 
