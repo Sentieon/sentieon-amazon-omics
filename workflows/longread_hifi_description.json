@@ -1,0 +1,31 @@
+{
+  "fastq": {
+    "description": "fastq files"
+  },
+  "read_groups": {
+    "description": "Sample read groups"
+  },
+  "reference_name": {
+    "description": "The name of the Human reference genome build. Choices are: hg38_alt/hg38_gatk, hg38/hg38_noalt/hs38, b37_gatk, b37/hs37d5, or hg19/ucsc_hg19"
+  },
+  "dnascope_lr_model": {
+    "description": "The DNAscope LongRead model file"
+  },
+  "longreadsv_model": {
+    "description": "The LongReadSV model file"
+  },
+  "canonical_user_id": {
+    "description": "Your account's AWS canonical user ID. Used to acquire a Sentieon license"
+  },
+  "sentieon_docker": {
+    "description": "Sentieon docker image"
+  },
+  "n_threads": {
+    "description": "Number of vCPUs to allocate for the task (default: 32)",
+    "optional": true
+  },
+  "memory": {
+    "description": "Memory to allocate for the task (default: 64 GiB)",
+    "optional": true
+  }
+}

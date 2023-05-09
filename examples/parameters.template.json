@@ -1,0 +1,8 @@
+{
+    "canonical_user_id": {
+        "description": "aws canonical user id"
+    },
+    "sentieon_docker": {
+        "description": "ECR image URI for sentieon container image"
+    }
+}

@@ -1,0 +1,9 @@
+376,378c376,379
+<     mem_kb=$(cat /proc/meminfo | grep "MemTotal" | awk '{print $2}')
+<     bwt_mem=$((mem_kb / 1024 / 1024 / numa_nodes - 10))
+<     export bwt_max_mem="$bwt_mem"G
+---
+>     #mem_kb=$(cat /proc/meminfo | grep "MemTotal" | awk '{print $2}')
+>     #bwt_mem=$((mem_kb / 1024 / 1024 / numa_nodes - 10))
+>     #export bwt_max_mem="$bwt_mem"G
+>     export bwt_max_mem="0G"

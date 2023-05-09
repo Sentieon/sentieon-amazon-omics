@@ -1,0 +1,51 @@
+{
+  "germline_fastq_wgs": {
+    "name": "GermlineFastq",
+    "description": "Sentieon germline (DNAseq and DNAscope) FASTQ to VCF",
+    "wdl": "germline.wdl",
+    "template": "germline_fastq_description.json",
+    "diff": null
+  },
+  "germline_fastq_wes": {
+    "name": "GermlineFastq-WES",
+    "description": "Sentieon germline (DNAseq and DNAscope) FASTQ to VCF - WES",
+    "wdl": "germline.wdl",
+    "template": "germline_fastq_description.json",
+    "diff": "germline_wes.diff"
+  },
+  "germline_bam": {
+    "name": "GermlineBam",
+    "description": "Sentieon germline (DNAseq and DNAscope) BAM/CRAM to VCF",
+    "wdl": "germline.wdl",
+    "template": "germline_bam_description.json",
+    "diff": null
+  },
+  "somatic_wgs": {
+    "name": "SomaticFastq",
+    "description": "Sentieon somatic alignment and variant calling",
+    "wdl": "somatic_wgs.wdl",
+    "template": "somatic_fastq_description.json",
+    "diff": null
+  },
+  "somatic_wes": {
+    "name": "SomaticFastq-WES",
+    "description": "Sentieon somatic alignment and variant calling - WES",
+    "wdl": "somatic_wgs.wdl",
+    "template": "somatic_fastq_description.json",
+    "diff": "somatic_wes.diff"
+  },
+  "longread_hifi": {
+    "name": "LongReadHiFi",
+    "description": "Sentieon germline alignment and variant calling for PacBio HiFi",
+    "wdl": "longread.wdl",
+    "template": "longread_hifi_description.json",
+    "diff": null
+  },
+  "longread_ont": {
+    "name": "LongReadONT",
+    "description": "Sentieon germline alignment and SV calling for ONT",
+    "wdl": "longread.wdl",
+    "template": "longread_ont_description.json",
+    "diff": "longread_ont.diff"
+  }
+}

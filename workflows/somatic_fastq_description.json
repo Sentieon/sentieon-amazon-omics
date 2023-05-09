@@ -1,0 +1,64 @@
+{
+  "r1_fastq": {
+    "description": "R1 fastq files"
+  },
+  "r2_fastq": {
+    "description": "R2 fastq files"
+  },
+  "read_groups": {
+    "description": "Sample read groups"
+  },
+  "normal_r1_fastq": {
+    "description": "R1 fastq files",
+    "optional": true
+  },
+  "normal_r2_fastq": {
+    "description": "R2 fastq files",
+    "optional": true
+  },
+  "normal_read_groups": {
+    "description": "Sample read groups",
+    "optional": true
+  },
+  "reference_name": {
+    "description": "The name of the Human reference genome build. Choices are: hg38_alt/hg38_gatk, hg38/hg38_noalt/hs38, b37_gatk, b37/hs37d5, or hg19/ucsc_hg19"
+  },
+  "pon_vcf": {
+    "description": "The panel of normals VCF file",
+    "optional": true
+  },
+  "pon_vcf_tbi": {
+    "description": "The panel of normals VCF index file",
+    "optional": true
+  },
+  "germline_vcf": {
+    "description": "The germline VCF file",
+    "optional": true
+  },
+  "germline_vcf_tbi": {
+    "description": "The germline VCF index file",
+    "optional": true
+  },
+  "contamination_vcf": {
+    "description": "The VCF file of germline sites for contamination detection",
+    "optional": true
+  },
+  "contamination_vcf_tbi": {
+    "description": "The VCF index file of germline sites for contamination detection",
+    "optional": true
+  },
+  "canonical_user_id": {
+    "description": "Your account's AWS canonical user ID. Used to acquire a Sentieon license"
+  },
+  "sentieon_docker": {
+    "description": "Sentieon docker image"
+  },
+  "n_threads": {
+    "description": "Number of vCPUs to allocate for the task (default: 32)",
+    "optional": true
+  },
+  "memory": {
+    "description": "Memory to allocate for the task (default: 64 GiB)",
+    "optional": true
+  }
+}

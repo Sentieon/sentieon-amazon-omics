@@ -1,0 +1,8 @@
+19c19
+<     String minimap2_xargs = "-L -x map-hifi -Y"
+---
+>     String minimap2_xargs = "-L -x map-ont -Y"
+258c258
+<     String minimap2_xargs = "-L -x map-hifi -Y"
+---
+>     String minimap2_xargs = "-L -x map-ont -Y"

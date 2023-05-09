@@ -1,0 +1,4 @@
+26c26
+<     String? bwt_max_mem
+---
+>     String bwt_max_mem = "0G"
