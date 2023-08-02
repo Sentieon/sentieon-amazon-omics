@@ -77,14 +77,15 @@ As part of the license validation, the `omics_credentials.sh` script will obtain
 
 ### Step 4: create an example workflow on Amazon Omics
 
-We are now ready to create Sentieon workflows on Amazon Omics. Running the following command at the start of the workflow will configure the environment for the Sentieon software:
+We are now ready to create Sentieon workflows on Amazon Omics. The container will use the environment variables `SENTIEON_LICENSE` and `CANONICAL_USER_ID` to configure your environment for the Sentieon software. Running the following commands will manually set these variables inside your workflow:
 
 ```bash
-source /opt/sentieon/omics_credentials.sh <SENTIEON_LICENSE> <CANONICAL_USER_ID>
+export SENTIEON_LICENSE=<SENTIEON_LICENSE>
+export CANONICAL_USER_ID=<CANONICAL_USER_ID>
 ```
-Where `<SENTIEON_LICENSE>` is the FQDN and port of the Sentieon license server and  `<CANONICAL_USER_ID>` is the AWS canonical user ID of the account running the workflow.
+Where `<SENTIEON_LICENSE>` is the FQDN and port of the Sentieon license server (currently `aws-omics.sentieon.com:9011`) and `<CANONICAL_USER_ID>` is the AWS canonical user ID of the account running the workflow. Instructions on finding the canonical ID for your AWS account can be found at, https://docs.aws.amazon.com/AmazonS3/latest/userguide/finding-canonical-user-id.html.
 
-Example workflows can be found in the (`examples`)[/examples] directory and complete workflow implementations can be found in the (`workflows`)[/workflows] directory.
+Example workflows can be found in the (`examples`)[/examples] directory and complete workflow implementations can be found in the (`workflows`)[/workflows] directory. The following commands demonstrate how to create example Omics workflows from the files in the examples directories.
 
 #### WDL
 

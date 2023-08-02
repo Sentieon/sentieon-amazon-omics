@@ -8,11 +8,9 @@ process SentieonLicence {
     
     script:
         """
-        set -xv
-
-        set +e
-        source /opt/sentieon/omics_credentials.sh "${params.sentieon_license}" "${params.canonical_user_id}"
-        set -e
+        set -exv
+        export SENTIEON_LICENSE="${params.sentieon_license}"
+        export CANONICAL_USER_ID="${params.canonical_user_id}"
 
         # Test Sentieon commands
         sentieon licclnt ping && echo "Ping is OK"

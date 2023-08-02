@@ -108,6 +108,18 @@ ENV LD_PRELOAD=/usr/local/lib/libjemalloc.so.2
 # A default jemalloc configuration that should work well for most use-cases, see http://jemalloc.net/jemalloc.3.html
 ENV MALLOC_CONF=metadata_thp:auto,background_thread:true,dirty_decay_ms:30000,muzzy_decay_ms:30000
 
+# Install the license setup script
+COPY ./omics_credentials.sh /opt/sentieon/sentieon-genomics-${SENTIEON_VERSION}/bin/
+RUN cd /opt/sentieon/sentieon-genomics-${SENTIEON_VERSION}/bin/ && \
+    mv bwa bwa.orig && \
+    mv minimap2 minimap2.orig && \
+    mv sentieon sentieon.orig && \
+    mv STAR STAR.orig && \
+    ln -s omics_credentials.sh bwa && \
+    ln -s omics_credentials.sh minimap2 && \
+    ln -s omics_credentials.sh sentieon && \
+    ln -s omics_credentials.sh STAR
+
 # Test the container
 RUN sentieon driver --help && \
     igzip --help && \
@@ -115,5 +127,3 @@ RUN sentieon driver --help && \
     bcftools --help && \
     bedtools --help && \
     aws --version
-
-COPY ./omics_credentials.sh /opt/sentieon/omics_credentials.sh

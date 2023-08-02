@@ -26,11 +26,10 @@ task SentieonLicense {
     String sentieon_license = "aws-omics.sentieon.com:9011"
   }
   command <<<
-    set -xv
+    set -exv
 
-    set +e
-    source /opt/sentieon/omics_credentials.sh "~{sentieon_license}" "~{canonical_user_id}"
-    set -e
+    export SENTIEON_LICENSE="~{sentieon_license}"
+    export CANONICAL_USER_ID="~{canonical_user_id}"
 
     # Test Sentieon commands
     sentieon licclnt ping && echo "Ping is OK"
