@@ -58,6 +58,8 @@ else
     export SENTIEON_LICENSE
     export SENTIEON_AUTH_MECH=aws_omics_service
     export SENTIEON_AUTH_DATA=~/.sentieon/sentieon_license_encode
+    SENTIEON_JOB_TAG=$(<"$LICENSE_TMP_PATH" jq '.job_tag')
+    export SENTIEON_JOB_TAG
 
     # Set `http_proxy` to the proxy server's IP
     ## Parse the proxy
