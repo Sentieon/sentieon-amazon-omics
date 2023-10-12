@@ -76,6 +76,7 @@ fi
 export SENTIEON_AUTH_MECH=aws_omics_service
 export SENTIEON_AUTH_DATA="$AUTH_DATA_PATH"
 SENTIEON_JOB_TAG=$(<"$LICENSE_TMP_PATH" jq '.job_tag')
+export SENTIEON_JOB_TAG
 export http_proxy=${OMICS_NETWORK_PROXY}
 
 # Run the original command
