@@ -117,3 +117,6 @@ RUN sentieon driver --help && \
     aws --version
 
 COPY ./omics_credentials.sh /opt/sentieon/omics_credentials.sh
+COPY ./generate_shards.py /opt/sentieon/generate_shards.py
+COPY ./sharded_joint_call.py /opt/sentieon/sharded_joint_call.py
+COPY ./merge_sharded_vcfs.py /opt/sentieon/merge_sharded_vcfs.py
