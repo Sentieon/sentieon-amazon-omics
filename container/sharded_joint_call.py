@@ -95,6 +95,7 @@ async def download_shard(
     running_tasks: set[asyncio.Task[int]] = set()
     cur_gvcf = 0
     while True:
+        logging.debug("Download looping shard %s with gvcf index %s", shard, cur_gvcf)
         if len(running_downloads) >= n_concurrent:
             _done, running_tasks = await asyncio.wait(
                 running_tasks, return_when=asyncio.FIRST_COMPLETED
@@ -137,6 +138,7 @@ async def download_shard(
         running_downloads.append((proc, gvcf))
         cur_gvcf += 1
 
+    logging.debug("Download waiting for shard %s", shard)
     await asyncio.wait(running_tasks, return_when=asyncio.ALL_COMPLETED)
     for download in running_downloads:
         if download[0].returncode != 0:
@@ -144,6 +146,7 @@ async def download_shard(
                 "Download failed for shard, %s with gvcf: %s", shard, download[1]
             )
             return (-1, shard_idx, shard)
+    logging.debug("Download finished for shard %s", shard)
 
     return (0, shard_idx, shard)
 
@@ -188,7 +191,7 @@ async def run_shard(
 
 
 async def main(argv: argparse.Namespace) -> int:
-    """ "Main function"""
+    """Main function"""
 
     # Read the list of gVCFs
     gvcf_list = argv.gvcf_list.read().rstrip().split("\n")
@@ -200,6 +203,19 @@ async def main(argv: argparse.Namespace) -> int:
     running_shards: list[asyncio.Task[int]] = []
     shard_idx = 0
     while shards_to_process or downloaded_shards or running_downloads or running_shards:
+        logging.debug(
+            (
+                "Main loop: iteration with\nshards_to_process: %s\n"
+                "downloaded_shards: %s\nrunning_downloads: %s\n"
+                "running_shards: %s\nshard_idx: %s\n\n"
+            ),
+            shards_to_process,
+            downloaded_shards,
+            running_downloads,
+            running_shards,
+            shard_idx,
+        )
+
         # Check if the download is finished
         finished: list[int] = []
         for i, task in enumerate(running_downloads):
@@ -210,7 +226,7 @@ async def main(argv: argparse.Namespace) -> int:
                     logging.error("Exit: download failed for shard %i", res[1])
                     return -1
                 downloaded_shards.append(res[1:])
-        for i in finished:
+        for i in reversed(finished):
             running_downloads.pop(i)
 
         if shards_to_process and not running_downloads and not downloaded_shards:
@@ -234,7 +250,7 @@ async def main(argv: argparse.Namespace) -> int:
                 if res != 0:
                     logging.error("Exit after failed run")
                     return -1
-        for i in finished:
+        for i in reversed(finished):
             running_shards.pop(i)
 
         if not running_shards and downloaded_shards:
@@ -258,16 +274,20 @@ async def main(argv: argparse.Namespace) -> int:
                 )
             )
 
+        logging.debug("Main loop: checking to wait")
         if (
             (running_shards and running_downloads)
+            or (running_shards and downloaded_shards)
             or (running_downloads and not downloaded_shards)
             or (running_shards and not shards_to_process)
         ):
+            logging.debug("Main loop: wait")
             running_tasks: list[asyncio.Task[Any]] = [
                 *running_downloads,
                 *running_shards,
             ]
             await asyncio.wait(running_tasks, return_when=asyncio.FIRST_COMPLETED)
+            logging.debug("Main loop: wake")
 
     return os.EX_OK
 

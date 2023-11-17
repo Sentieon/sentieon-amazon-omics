@@ -1,0 +1,61 @@
+{
+  "gvcf_list": {
+    "description": "A list of input gVCF files in s3. One file per line"
+  },
+  "ref_fasta": {
+    "description": "The reference genome fasta file."
+  },
+  "ref_fai": {
+    "description": "The reference genome fasta index."
+  },
+  "region": {
+    "description": "The region to process. Optional, but recommended.",
+    "optional": true
+  },
+  "compute_workers": {
+    "description": "The number of VMs to use for joint genotyping (default: 4).",
+    "optional": true
+  },
+  "shard_size": {
+    "description": "The shard size for distribution (default: 100000000).",
+    "optional": true
+  },
+  "gvcftyper_memory": {
+    "description": "Memory usage for joint calling VMs (default: 128 GiB).",
+    "optional": true
+  },
+  "gvcftyper_threads": {
+    "description": "The number of threads for joint calling (default: 32).",
+    "optional": true
+  },
+  "concurrent_downloads": {
+    "description": "The number of concurrent downloads of partial gVCFs (default: 5).",
+    "optional": true
+  },
+  "output_splits": {
+    "description": "Split the final output into this many VCFs (default: 5; aproximate).",
+    "optional": true
+  },
+  "merge_memory": {
+    "description": "Memory usage for merge VMs (default: 128 GiB).",
+    "optional": true
+  },
+  "merge_threads": {
+    "description": "The number of threads for merging (default: 32).",
+    "optional": true
+  },
+  "driver_xargs": {
+    "description": "Additional arguments passed to the Sentieon driver (default: --traverse_param 10000/200).",
+    "optional": true
+  },
+  "gvcftyper_xargs": {
+    "description": "Additional arguments passed to the GVCFtyper algo (default: --genotype_model multinomial --max_alt_alleles 12).",
+    "optional": true
+  },
+  "canonical_user_id": {
+    "description": "Your account's AWS canonical user ID. Used to acquire a Sentieon license"
+  },
+  "sentieon_docker": {
+    "description": "The Sentieon container image"
+  }
+}

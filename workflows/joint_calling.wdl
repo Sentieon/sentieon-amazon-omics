@@ -15,21 +15,25 @@ workflow distributed_gvcftyper {
     # Settings for distribution
     String? region  # Can be used to limit the joint call to a specific region. Defaults to the whole genome
     Int compute_workers = 4  # Acceptable for small to medium joint calls. May need to be increased for larger joint calls
-    Int shard_size = 10000000  # The shard size, decrease for large joint calls
-    String gvcftyper_memory = "128 GiB"
-    String gvcftyper_threads = 32
+    Int shard_size = 100000000  # The shard size, decrease for large joint calls
+    String gvcftyper_memory = "32 GiB"
+    String gvcftyper_threads = "16"
     Int concurrent_downloads = 5
 
     # Settings for the merged output
     Int output_splits = 5  # Number of VCFs to split the output into
-    String merge_memory = "128 GiB"
-    String merge_threads = 32
+    String merge_memory = "32 GiB"
+    String merge_threads = "16"
 
     # GVCFtyper arguments
     File? dbsnp_vcf
     File? dbsnp_vcf_tbi
     String driver_xargs = "--traverse_param 10000/200"
     String gvcftyper_xargs = "--genotype_model multinomial --max_alt_alleles 12"
+
+    # Sentieon license configuration
+    String canonical_user_id
+    String sentieon_license = "aws-omics.sentieon.com:9011"
 
     # Execution
     String sentieon_docker
@@ -68,6 +72,9 @@ workflow distributed_gvcftyper {
         driver_xargs = driver_xargs,
         gvcftyper_xargs = gvcftyper_xargs,
         sentieon_docker = sentieon_docker,
+
+        canonical_user_id = canonical_user_id,
+        sentieon_license = sentieon_license,
     }
   }
   Array[File] flat_shard_vcfs = flatten(DistributedGvcfyper.shard_vcfs)
@@ -89,6 +96,9 @@ workflow distributed_gvcftyper {
         merge_memory = merge_memory,
         merge_threads = merge_threads,
         sentieon_docker = sentieon_docker,
+
+        canonical_user_id = canonical_user_id,
+        sentieon_license = sentieon_license,
     }
   }
   Array[File] merged_vcfs = MergeGvcftyper.vcf
@@ -170,7 +180,7 @@ task DistributedGvcfyper {
 
     # Settings for distribution
     String gvcftyper_memory = "64 GiB"
-    String gvcftyper_threads = 32
+    String gvcftyper_threads = "16"
     Int concurrent_downloads = 5
     String sentieon_docker
 
@@ -179,9 +189,15 @@ task DistributedGvcfyper {
     File? dbsnp_vcf_tbi
     String driver_xargs = "--traverse_param 10000/200"
     String gvcftyper_xargs = "--genotype_mode multinomial --max_alt_alleles 12"
+
+    # Sentieon license configuration
+    String canonical_user_id
+    String sentieon_license = "aws-omics.sentieon.com:9011"
   }
 
   command <<<
+    set -xv
+    source /opt/sentieon/omics_credentials.sh "~{sentieon_license}" "~{canonical_user_id}"
     set -exvuo pipefail
 
     dbsnp_arg=()
@@ -201,7 +217,7 @@ task DistributedGvcfyper {
       --gvcf_list "~{gvcf_list}" \
       --shards "~{sep='" "' gvcftyper_shards}" \
       --debug \
-      $dbsnp_arg \
+      "${dbsnp_arg[@]}" \
       --driver_xargs "~{driver_xargs}" \
       --gvcftyper_xargs "~{gvcftyper_xargs}" \
       --output_basename "shard_vcfs" \
@@ -232,9 +248,15 @@ task MergeGvcftyper {
     String merge_memory
     String merge_threads
     String sentieon_docker
+
+    # Sentieon license configuration
+    String canonical_user_id
+    String sentieon_license = "aws-omics.sentieon.com:9011"
   }
 
   command <<<
+    set -xv
+    source /opt/sentieon/omics_credentials.sh "~{sentieon_license}" "~{canonical_user_id}"
     set -exvuo pipefail
 
     sharded_vcfs=("~{sep='" "' shard_vcfs}")
