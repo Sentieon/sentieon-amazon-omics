@@ -90,6 +90,7 @@ async def download_shard(
     Async download of the next shard
     return: (returncode, shard_idx, shard)
     """
+    logging.info("Downloading shard index '%s' and shard: %s", shard_idx, shard)
     os.makedirs(f"sharded_inputs_{shard_idx}", exist_ok=True)
     running_downloads: list[tuple[asyncio.subprocess.Process, str]] = []
     running_tasks: set[asyncio.Task[int]] = set()
@@ -146,7 +147,7 @@ async def download_shard(
                 "Download failed for shard, %s with gvcf: %s", shard, download[1]
             )
             return (-1, shard_idx, shard)
-    logging.debug("Download finished for shard %s", shard)
+    logging.info("Download finished for shard index '%s' and shard: %s", shard_idx, shard)
 
     return (0, shard_idx, shard)
 

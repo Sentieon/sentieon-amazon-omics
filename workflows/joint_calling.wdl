@@ -19,11 +19,12 @@ workflow distributed_gvcftyper {
     String gvcftyper_memory = "32 GiB"
     String gvcftyper_threads = "16"
     Int concurrent_downloads = 5
+    Boolean debug = false
 
     # Settings for the merged output
     Int output_splits = 5  # Number of VCFs to split the output into
-    String merge_memory = "32 GiB"
-    String merge_threads = "16"
+    String merge_memory = "16 GiB"
+    String merge_threads = "8"
 
     # GVCFtyper arguments
     File? dbsnp_vcf
@@ -72,6 +73,7 @@ workflow distributed_gvcftyper {
         driver_xargs = driver_xargs,
         gvcftyper_xargs = gvcftyper_xargs,
         sentieon_docker = sentieon_docker,
+        debug = debug,
 
         canonical_user_id = canonical_user_id,
         sentieon_license = sentieon_license,
@@ -96,6 +98,7 @@ workflow distributed_gvcftyper {
         merge_memory = merge_memory,
         merge_threads = merge_threads,
         sentieon_docker = sentieon_docker,
+        debug = debug,
 
         canonical_user_id = canonical_user_id,
         sentieon_license = sentieon_license,
@@ -183,6 +186,7 @@ task DistributedGvcfyper {
     String gvcftyper_threads = "16"
     Int concurrent_downloads = 5
     String sentieon_docker
+    Boolean debug = false
 
     # GVCFtyper arguments
     File? dbsnp_vcf
@@ -208,6 +212,8 @@ task DistributedGvcfyper {
       dbsnp_arg=("--dbsnp" "./dbsnp.vcf.gz")
     fi
 
+    debug_arg=~{true="debug" false="" debug}
+
     ln -s "~{ref_fasta}" ./ref.fa
     ln -s "~{ref_fai}" ./ref.fa.fai
 
@@ -216,7 +222,7 @@ task DistributedGvcfyper {
       --ref "./ref.fa" \
       --gvcf_list "~{gvcf_list}" \
       --shards "~{sep='" "' gvcftyper_shards}" \
-      --debug \
+      ${debug_arg:+--debug} \
       "${dbsnp_arg[@]}" \
       --driver_xargs "~{driver_xargs}" \
       --gvcftyper_xargs "~{gvcftyper_xargs}" \
@@ -248,6 +254,7 @@ task MergeGvcftyper {
     String merge_memory
     String merge_threads
     String sentieon_docker
+    Boolean debug = false
 
     # Sentieon license configuration
     String canonical_user_id
@@ -273,7 +280,10 @@ task MergeGvcftyper {
       all_vcfs+=("./called_${i}.vcf.gz")
     done
 
+    debug_arg=~{true="debug" false="" debug}
+
     /opt/sentieon/merge_sharded_vcfs.py \
+      ${debug_arg:+--debug} \
       --vcfs "${all_vcfs[@]}" \
       --region "~{merge_shard}" \
       --output merged_region.vcf.gz
