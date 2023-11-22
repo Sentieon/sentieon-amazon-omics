@@ -14,6 +14,11 @@ import sys
 
 from typing import Any, Optional
 
+DOWNLOAD_CMD = (
+    "bcftools view --no-version -r {shard} -o - {gvcf} | "
+    "sentieon util vcfconvert - sharded_inputs_{shard_idx}/sample_{cur_gvcf}.g.vcf.gz"
+)
+
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     """Parse arguments"""
@@ -77,7 +82,50 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         default=5,
         type=int,
     )
+    parser.add_argument(
+        "--download_retries",
+        help="The number of times to retry a failing download",
+        type=int,
+        default=5,
+    )
     return parser.parse_args(argv)
+
+
+async def download_gvcf(
+    shard: str,
+    gvcf: str,
+    shard_idx: int,
+    gvcf_idx: int,
+    current_try: int = 0,
+) -> tuple[asyncio.Task[int], tuple[asyncio.subprocess.Process, str, int, int]]:
+    """Download one gVCF"""
+    if current_try > 0:
+        logging.debug(
+            "Re-running download for shard %s with gvcf %s",
+            shard,
+            gvcf,
+        )
+        await asyncio.sleep(current_try * 2)
+    download_cmd = DOWNLOAD_CMD.format(
+        shard=shard,
+        gvcf=gvcf,
+        shard_idx=shard_idx,
+        cur_gvcf=gvcf_idx,
+    )
+    logging.debug("Running: %s", download_cmd)
+    if logging.root.level <= logging.DEBUG:
+        proc = await asyncio.create_subprocess_shell(download_cmd, shell=True)
+    else:
+        proc = await asyncio.create_subprocess_shell(
+            download_cmd,
+            stderr=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.DEVNULL,
+        )
+    res = (
+        asyncio.create_task(proc.wait()),
+        (proc, gvcf, gvcf_idx, current_try+1)
+    )
+    return res
 
 
 async def download_shard(
@@ -85,6 +133,7 @@ async def download_shard(
     shard: str,
     shard_idx: int,
     n_concurrent: int,
+    download_retries: int = 5,
 ) -> tuple[int, int, str]:
     """
     Async download of the next shard
@@ -92,7 +141,7 @@ async def download_shard(
     """
     logging.info("Downloading shard index '%s' and shard: %s", shard_idx, shard)
     os.makedirs(f"sharded_inputs_{shard_idx}", exist_ok=True)
-    running_downloads: list[tuple[asyncio.subprocess.Process, str]] = []
+    running_downloads: list[tuple[asyncio.subprocess.Process, str, int, int]] = []
     running_tasks: set[asyncio.Task[int]] = set()
     cur_gvcf = 0
     while True:
@@ -111,44 +160,78 @@ async def download_shard(
                 running_downloads.pop(i) for i in reversed(finished_idxs)
             ]
             for download in finished_downloads:
-                if download[0].returncode != 0:
-                    logging.error(
-                        "Download failed for shard, %s with gvcf: %s",
-                        shard,
-                        download[1],
+                proc, gvcf, gvcf_idx, current_try = download
+                if proc.returncode != 0:
+                    if current_try >= download_retries:
+                        logging.error(
+                            "Download failed for shard, %s with gvcf: %s",
+                            shard,
+                            gvcf,
+                        )
+                        return (-1, shard_idx, shard)
+
+                    download_ret = await download_gvcf(
+                        shard=shard,
+                        gvcf=gvcf,
+                        shard_idx=shard_idx,
+                        gvcf_idx=gvcf_idx,
+                        current_try=current_try,
                     )
-                    return (-1, shard_idx, shard)
+                    running_tasks.add(download_ret[0])
+                    running_downloads.append(download_ret[1])
+            continue
 
         if cur_gvcf >= len(gvcf_list):
             break
         gvcf = gvcf_list[cur_gvcf]
-        download_cmd = (
-            f"bcftools view --no-version -r {shard} -o - {gvcf} | "
-            f"sentieon util vcfconvert - sharded_inputs_{shard_idx}/sample_{cur_gvcf}.g.vcf.gz"
+
+        download_ret = await download_gvcf(
+            shard=shard,
+            gvcf=gvcf,
+            shard_idx=shard_idx,
+            gvcf_idx=cur_gvcf,
         )
-        logging.debug("Running: %s", download_cmd)
-        if logging.root.level <= logging.DEBUG:
-            proc = await asyncio.create_subprocess_shell(download_cmd, shell=True)
-        else:
-            proc = await asyncio.create_subprocess_shell(
-                download_cmd,
-                stderr=asyncio.subprocess.DEVNULL,
-                stdout=asyncio.subprocess.DEVNULL,
-            )
-        running_tasks.add(asyncio.create_task(proc.wait()))
-        running_downloads.append((proc, gvcf))
+        running_tasks.add(download_ret[0])
+        running_downloads.append(download_ret[1])
         cur_gvcf += 1
 
-    logging.debug("Download waiting for shard %s", shard)
-    await asyncio.wait(running_tasks, return_when=asyncio.ALL_COMPLETED)
-    for download in running_downloads:
-        if download[0].returncode != 0:
-            logging.error(
-                "Download failed for shard, %s with gvcf: %s", shard, download[1]
+    while running_downloads:
+        if running_tasks:
+            _done, running_tasks = await asyncio.wait(
+                running_tasks, return_when=asyncio.FIRST_COMPLETED
             )
-            return (-1, shard_idx, shard)
-    logging.info("Download finished for shard index '%s' and shard: %s", shard_idx, shard)
 
+        finished_idxs = [
+            i
+            for i, j in enumerate(running_downloads)
+            if j[0].returncode is not None
+        ]
+        finished_downloads = [
+            running_downloads.pop(i) for i in reversed(finished_idxs)
+        ]
+
+        for download in finished_downloads:
+            proc, gvcf, gvcf_idx, current_try = download
+            if proc.returncode != 0:
+                if current_try >= download_retries:
+                    logging.error(
+                        "Download failed for shard, %s with gvcf: %s",
+                        shard,
+                        gvcf,
+                    )
+                    return (-1, shard_idx, shard)
+
+                download_ret = await download_gvcf(
+                    shard=shard,
+                    gvcf=gvcf,
+                    shard_idx=shard_idx,
+                    gvcf_idx=gvcf_idx,
+                    current_try=current_try,
+                )
+                running_tasks.add(download_ret[0])
+                running_downloads.append(download_ret[1])
+
+    logging.info("Download finished for shard index '%s' and shard: %s", shard_idx, shard)
     return (0, shard_idx, shard)
 
 
@@ -175,7 +258,7 @@ async def run_shard(
         f"{basename}_shard-{shard_idx}.vcf.gz -"
     )
     logging.info("Running: %s", run_cmd)
-    p = await asyncio.subprocess.create_subprocess_shell(
+    p = await asyncio.create_subprocess_shell(
         run_cmd,
         stdin=asyncio.subprocess.PIPE,
     )
@@ -237,7 +320,11 @@ async def main(argv: argparse.Namespace) -> int:
             running_downloads.append(
                 asyncio.create_task(
                     download_shard(
-                        gvcf_list, cur_shard, shard_idx, argv.concurrent_downloads
+                        gvcf_list,
+                        cur_shard,
+                        shard_idx,
+                        argv.concurrent_downloads,
+                        download_retries=argv.download_retries,
                     )
                 )
             )
