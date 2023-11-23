@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 DOWNLOAD_CMD = (
     "bcftools view --no-version -r {shard} -o - {gvcf} | "
-    "sentieon util vcfconvert - sharded_inputs_{shard_idx}/sample_{cur_gvcf}.g.vcf.gz"
+    "sentieon util vcfconvert - {gvcf_dest}"
 )
 
 
@@ -88,16 +88,20 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         type=int,
         default=5,
     )
+    parser.add_argument(
+        "--ramdisk",
+        help="Use a ramdisk to store partial gVCFs",
+        action='store_true',
+    )
     return parser.parse_args(argv)
 
 
 async def download_gvcf(
     shard: str,
     gvcf: str,
-    shard_idx: int,
-    gvcf_idx: int,
+    gvcf_dest: str,
     current_try: int = 0,
-) -> tuple[asyncio.Task[int], tuple[asyncio.subprocess.Process, str, int, int]]:
+) -> tuple[asyncio.subprocess.Process, str, str, int]:
     """Download one gVCF"""
     if current_try > 0:
         logging.debug(
@@ -109,8 +113,7 @@ async def download_gvcf(
     download_cmd = DOWNLOAD_CMD.format(
         shard=shard,
         gvcf=gvcf,
-        shard_idx=shard_idx,
-        cur_gvcf=gvcf_idx,
+        gvcf_dest=gvcf_dest,
     )
     logging.debug("Running: %s", download_cmd)
     if logging.root.level <= logging.DEBUG:
@@ -121,10 +124,7 @@ async def download_gvcf(
             stderr=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.DEVNULL,
         )
-    res = (
-        asyncio.create_task(proc.wait()),
-        (proc, gvcf, gvcf_idx, current_try+1)
-    )
+    res = (proc, gvcf, gvcf_dest, current_try+1)
     return res
 
 
@@ -134,14 +134,19 @@ async def download_shard(
     shard_idx: int,
     n_concurrent: int,
     download_retries: int = 5,
+    ramdisk: bool = False,
 ) -> tuple[int, int, str]:
     """
     Async download of the next shard
     return: (returncode, shard_idx, shard)
     """
     logging.info("Downloading shard index '%s' and shard: %s", shard_idx, shard)
-    os.makedirs(f"sharded_inputs_{shard_idx}", exist_ok=True)
-    running_downloads: list[tuple[asyncio.subprocess.Process, str, int, int]] = []
+
+    base_dir = f"sharded_inputs_{shard_idx}"
+    if ramdisk:
+        base_dir = f"/dev/shm/sharded_inputs_{shard_idx}"
+    os.makedirs(base_dir, exist_ok=True)
+    running_downloads: list[tuple[asyncio.subprocess.Process, str, str, int]] = []
     running_tasks: set[asyncio.Task[int]] = set()
     cur_gvcf = 0
     while True:
@@ -160,7 +165,7 @@ async def download_shard(
                 running_downloads.pop(i) for i in reversed(finished_idxs)
             ]
             for download in finished_downloads:
-                proc, gvcf, gvcf_idx, current_try = download
+                proc, gvcf, gvcf_dest, current_try = download
                 if proc.returncode != 0:
                     if current_try >= download_retries:
                         logging.error(
@@ -173,26 +178,25 @@ async def download_shard(
                     download_ret = await download_gvcf(
                         shard=shard,
                         gvcf=gvcf,
-                        shard_idx=shard_idx,
-                        gvcf_idx=gvcf_idx,
+                        gvcf_dest=gvcf_dest,
                         current_try=current_try,
                     )
-                    running_tasks.add(download_ret[0])
-                    running_downloads.append(download_ret[1])
+                    running_tasks.add(asyncio.create_task(download_ret[0].wait()))
+                    running_downloads.append(download_ret)
             continue
 
         if cur_gvcf >= len(gvcf_list):
             break
         gvcf = gvcf_list[cur_gvcf]
+        gvcf_dest = f"{base_dir}/sample_{cur_gvcf}.g.vcf.gz"
 
         download_ret = await download_gvcf(
             shard=shard,
             gvcf=gvcf,
-            shard_idx=shard_idx,
-            gvcf_idx=cur_gvcf,
+            gvcf_dest=gvcf_dest,
         )
-        running_tasks.add(download_ret[0])
-        running_downloads.append(download_ret[1])
+        running_tasks.add(asyncio.create_task(download_ret[0].wait()))
+        running_downloads.append(download_ret)
         cur_gvcf += 1
 
     while running_downloads:
@@ -211,7 +215,7 @@ async def download_shard(
         ]
 
         for download in finished_downloads:
-            proc, gvcf, gvcf_idx, current_try = download
+            proc, gvcf, gvcf_dest, current_try = download
             if proc.returncode != 0:
                 if current_try >= download_retries:
                     logging.error(
@@ -224,12 +228,11 @@ async def download_shard(
                 download_ret = await download_gvcf(
                     shard=shard,
                     gvcf=gvcf,
-                    shard_idx=shard_idx,
-                    gvcf_idx=gvcf_idx,
+                    gvcf_dest=gvcf_dest,
                     current_try=current_try,
                 )
-                running_tasks.add(download_ret[0])
-                running_downloads.append(download_ret[1])
+                running_tasks.add(asyncio.create_task(download_ret[0].wait()))
+                running_downloads.append(download_ret)
 
     logging.info("Download finished for shard index '%s' and shard: %s", shard_idx, shard)
     return (0, shard_idx, shard)
@@ -244,10 +247,14 @@ async def run_shard(
     driver_xargs: str = "",
     algo_xargs: str = "",
     dbsnp: Optional[str] = None,
+    ramdisk: bool = False,
 ) -> int:
     """Async run the GVCFtyper for the shard"""
+    base_dir = ""
+    if ramdisk:
+        base_dir = "/dev/shm/"
     input_gvcfs = [
-        f"sharded_inputs_{shard_idx}/sample_{i}.g.vcf.gz" for i in range(n_samples)
+        f"{base_dir}sharded_inputs_{shard_idx}/sample_{i}.g.vcf.gz" for i in range(n_samples)
     ]
     input_gvcfs = str.encode("\n".join(input_gvcfs))
 
@@ -269,7 +276,7 @@ async def run_shard(
         return -1
 
     # Remove the input gVCFs to save space
-    shutil.rmtree(f"sharded_inputs_{shard_idx}")
+    shutil.rmtree(f"{base_dir}sharded_inputs_{shard_idx}")
 
     return 0
 
@@ -325,6 +332,7 @@ async def main(argv: argparse.Namespace) -> int:
                         shard_idx,
                         argv.concurrent_downloads,
                         download_retries=argv.download_retries,
+                        ramdisk=argv.ramdisk,
                     )
                 )
             )
@@ -358,6 +366,7 @@ async def main(argv: argparse.Namespace) -> int:
                         driver_xargs=argv.driver_xargs,
                         algo_xargs=argv.gvcftyper_xargs,
                         dbsnp=dbsnp_arg,
+                        ramdisk=argv.ramdisk,
                     )
                 )
             )

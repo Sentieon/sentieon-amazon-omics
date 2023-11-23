@@ -52,6 +52,14 @@
     "description": "Additional arguments passed to the GVCFtyper algo (default: --genotype_model multinomial --max_alt_alleles 12).",
     "optional": true
   },
+  "debug": {
+    "description": "Output additional debugging information. Very verbose (default: false).",
+    "optional": true
+  },
+  "ramdisk": {
+    "description": "Use a ramdisk to store partial gVCF files during joint calling (default: true).",
+    "optional": true
+  },
   "canonical_user_id": {
     "description": "Your account's AWS canonical user ID. Used to acquire a Sentieon license"
   },

@@ -20,6 +20,7 @@ workflow distributed_gvcftyper {
     String gvcftyper_threads = "16"
     Int concurrent_downloads = 5
     Boolean debug = false
+    Boolean ramdisk = false
 
     # Settings for the merged output
     Int output_splits = 5  # Number of VCFs to split the output into
@@ -74,6 +75,7 @@ workflow distributed_gvcftyper {
         gvcftyper_xargs = gvcftyper_xargs,
         sentieon_docker = sentieon_docker,
         debug = debug,
+        ramdisk = ramdisk,
 
         canonical_user_id = canonical_user_id,
         sentieon_license = sentieon_license,
@@ -187,6 +189,7 @@ task DistributedGvcfyper {
     Int concurrent_downloads = 5
     String sentieon_docker
     Boolean debug = false
+    Boolean ramdisk = false
 
     # GVCFtyper arguments
     File? dbsnp_vcf
@@ -213,6 +216,7 @@ task DistributedGvcfyper {
     fi
 
     debug_arg=~{true="debug" false="" debug}
+    ramdisk_arg=~{true="ramdisk" false="" ramdisk}
 
     ln -s "~{ref_fasta}" ./ref.fa
     ln -s "~{ref_fai}" ./ref.fa.fai
@@ -223,6 +227,7 @@ task DistributedGvcfyper {
       --gvcf_list "~{gvcf_list}" \
       --shards "~{sep='" "' gvcftyper_shards}" \
       ${debug_arg:+--debug} \
+      ${ramdisk_arg:+--ramdisk} \
       "${dbsnp_arg[@]}" \
       --driver_xargs "~{driver_xargs}" \
       --gvcftyper_xargs "~{gvcftyper_xargs}" \
