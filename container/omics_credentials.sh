@@ -42,7 +42,9 @@ if [ -n "$IS_DAEMON" ]; then
     while true; do
         sleep "$SLEEP_TIME"
         aws s3 cp "$LICENSE_URI" "$LICENSE_TMP_PATH"
-        <"$LICENSE_TMP_PATH" base64 > "$AUTH_DATA_PATH"
+        if [[ -s "$LICENSE_TMP_PATH" ]]; then
+            <"$LICENSE_TMP_PATH" base64 > "$AUTH_DATA_PATH"
+        fi
     done
 else
     # Check for a license token

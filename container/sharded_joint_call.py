@@ -9,6 +9,7 @@ import asyncio
 import asyncio.subprocess
 import logging
 import os
+import pathlib
 import shutil
 import sys
 
@@ -91,7 +92,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--ramdisk",
         help="Use a ramdisk to store partial gVCFs",
-        action='store_true',
+        action="store_true",
     )
     return parser.parse_args(argv)
 
@@ -124,7 +125,7 @@ async def download_gvcf(
             stderr=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.DEVNULL,
         )
-    res = (proc, gvcf, gvcf_dest, current_try+1)
+    res = (proc, gvcf, gvcf_dest, current_try + 1)
     return res
 
 
@@ -148,6 +149,7 @@ async def download_shard(
     os.makedirs(base_dir, exist_ok=True)
     running_downloads: list[tuple[asyncio.subprocess.Process, str, str, int]] = []
     running_tasks: set[asyncio.Task[int]] = set()
+    finalized_downloads: list[tuple[str, str]] = []
     cur_gvcf = 0
     while True:
         logging.debug("Download looping shard %s with gvcf index %s", shard, cur_gvcf)
@@ -166,23 +168,26 @@ async def download_shard(
             ]
             for download in finished_downloads:
                 proc, gvcf, gvcf_dest, current_try = download
-                if proc.returncode != 0:
-                    if current_try >= download_retries:
-                        logging.error(
-                            "Download failed for shard, %s with gvcf: %s",
-                            shard,
-                            gvcf,
-                        )
-                        return (-1, shard_idx, shard)
+                if proc.returncode == 0:
+                    finalized_downloads.append((gvcf, gvcf_dest))
+                    continue
 
-                    download_ret = await download_gvcf(
-                        shard=shard,
-                        gvcf=gvcf,
-                        gvcf_dest=gvcf_dest,
-                        current_try=current_try,
+                if current_try >= download_retries:
+                    logging.error(
+                        "Download failed for shard, %s with gvcf: %s",
+                        shard,
+                        gvcf,
                     )
-                    running_tasks.add(asyncio.create_task(download_ret[0].wait()))
-                    running_downloads.append(download_ret)
+                    return (-1, shard_idx, shard)
+
+                download_ret = await download_gvcf(
+                    shard=shard,
+                    gvcf=gvcf,
+                    gvcf_dest=gvcf_dest,
+                    current_try=current_try,
+                )
+                running_tasks.add(asyncio.create_task(download_ret[0].wait()))
+                running_downloads.append(download_ret)
             continue
 
         if cur_gvcf >= len(gvcf_list):
@@ -206,35 +211,58 @@ async def download_shard(
             )
 
         finished_idxs = [
-            i
-            for i, j in enumerate(running_downloads)
-            if j[0].returncode is not None
+            i for i, j in enumerate(running_downloads) if j[0].returncode is not None
         ]
-        finished_downloads = [
-            running_downloads.pop(i) for i in reversed(finished_idxs)
-        ]
+        finished_downloads = [running_downloads.pop(i) for i in reversed(finished_idxs)]
 
         for download in finished_downloads:
             proc, gvcf, gvcf_dest, current_try = download
-            if proc.returncode != 0:
-                if current_try >= download_retries:
-                    logging.error(
-                        "Download failed for shard, %s with gvcf: %s",
-                        shard,
-                        gvcf,
-                    )
-                    return (-1, shard_idx, shard)
+            if proc.returncode == 0:
+                finalized_downloads.append((gvcf, gvcf_dest))
+                continue
 
-                download_ret = await download_gvcf(
-                    shard=shard,
-                    gvcf=gvcf,
-                    gvcf_dest=gvcf_dest,
-                    current_try=current_try,
+            if current_try >= download_retries:
+                logging.error(
+                    "Download failed for shard, %s with gvcf: %s",
+                    shard,
+                    gvcf,
                 )
-                running_tasks.add(asyncio.create_task(download_ret[0].wait()))
-                running_downloads.append(download_ret)
+                return (-1, shard_idx, shard)
 
-    logging.info("Download finished for shard index '%s' and shard: %s", shard_idx, shard)
+            download_ret = await download_gvcf(
+                shard=shard,
+                gvcf=gvcf,
+                gvcf_dest=gvcf_dest,
+                current_try=current_try,
+            )
+            running_tasks.add(asyncio.create_task(download_ret[0].wait()))
+            running_downloads.append(download_ret)
+
+    # Check the dest files
+    for gvcf, gvcf_dest in finalized_downloads:
+        gvcf_path = pathlib.Path(gvcf_dest)
+        if gvcf_path.exists() and (gvcf_path.stat().st_size > 0):
+            continue
+
+        logging.warning(
+            "Empty destination file for shard, %s with gvcf: %s",
+            shard,
+            gvcf,
+        )
+        download_ret = await download_gvcf(shard, gvcf, gvcf_dest)
+        proc = download_ret[0]
+        ret = await proc.wait()
+        if ret != 0 or (not gvcf_path.exists()) or (gvcf_path.stat().st_size < 1):
+            logging.error(
+                "Final download failed for shard, %s with gvcf: %s",
+                shard,
+                gvcf,
+            )
+            return (-1, shard_idx, shard)
+
+    logging.info(
+        "Download finished for shard index '%s' and shard: %s", shard_idx, shard
+    )
     return (0, shard_idx, shard)
 
 
@@ -254,7 +282,8 @@ async def run_shard(
     if ramdisk:
         base_dir = "/dev/shm/"
     input_gvcfs = [
-        f"{base_dir}sharded_inputs_{shard_idx}/sample_{i}.g.vcf.gz" for i in range(n_samples)
+        f"{base_dir}sharded_inputs_{shard_idx}/sample_{i}.g.vcf.gz"
+        for i in range(n_samples)
     ]
     input_gvcfs = str.encode("\n".join(input_gvcfs))
 
