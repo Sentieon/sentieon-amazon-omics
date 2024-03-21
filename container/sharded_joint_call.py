@@ -16,8 +16,8 @@ import sys
 from typing import Any, Optional
 
 DOWNLOAD_CMD = (
-    "bcftools view --no-version -r {shard} -o - {gvcf} | "
-    "sentieon util vcfconvert - {gvcf_dest}"
+    "bcftools view --no-version -r {shard} --threads 2 -o {gvcf_dest} {gvcf} && "
+    "bcftools index --threads 2 -t {gvcf_dest}"
 )
 
 
@@ -420,5 +420,9 @@ async def main(argv: argparse.Namespace) -> int:
 
 if __name__ == "__main__":
     args = parse_args()
-    logging.basicConfig(level=args.loglevel)
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=args.loglevel,
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
     sys.exit(asyncio.run(main(args)))

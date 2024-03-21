@@ -221,6 +221,8 @@ task DistributedGvcfyper {
     ln -s "~{ref_fasta}" ./ref.fa
     ln -s "~{ref_fai}" ./ref.fa.fai
 
+    export VCFCACHE_BLOCKSIZE=4096
+
     set +u
     /opt/sentieon/sharded_joint_call.py \
       --ref "./ref.fa" \
