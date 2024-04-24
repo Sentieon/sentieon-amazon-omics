@@ -62,6 +62,13 @@ else
     SENTIEON_JOB_TAG=$(<"$LICENSE_TMP_PATH" jq '.job_tag')
     export SENTIEON_JOB_TAG
 
+    # Check that OMICS_NETWORK_PROXY is set
+    OMICS_NETWORK_PROXY="${OMICS_NETWORK_PROXY-}"
+    if [ -z "$OMICS_NETWORK_PROXY" ]; then
+        echo "Error: the variable OMICS_NETWORK_PROXY is required but is unset. Please reach out to the AWS support team so that your account can be allow-listed with the proxy server."
+        exit 1
+    fi
+
     # Configure the software to use the proxy server
     export http_proxy="${OMICS_NETWORK_PROXY}"
 
