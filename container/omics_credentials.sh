@@ -62,35 +62,8 @@ else
     SENTIEON_JOB_TAG=$(<"$LICENSE_TMP_PATH" jq '.job_tag')
     export SENTIEON_JOB_TAG
 
-    # Set `http_proxy` to the proxy server's IP
-    ## Parse the proxy
-    proxy_host_port=${OMICS_NETWORK_PROXY}
-    proxy_port="${proxy_host_port##*:}"
-    proxy_prefix_host="${proxy_host_port%:*}"
-    proxy_host="${proxy_prefix_host##http://}"
-
-    # Get the proxy ip address(es)
-    getent ahosts "$proxy_host" | cut -f 1 -d ' ' | uniq > test_dns.txt
-    sleep 1
-
-    # Test the proxy ip with curl
-    proxy_ip=""
-    while IFS= read -r line; do
-      echo "Testing ip address: $line"
-      https_proxy=http://"$line":"$proxy_port" curl -v -m 5 -k https://aws-omics.sentieon.com:9011
-      retcode="$?"  # curl sets a returncode of 28 for a timeout while 35 is expected for a handshake failure
-      if [ "$retcode" -ne 28 ]; then
-        proxy_ip="$line"
-      fi
-    done < test_dns.txt
-    rm test_dns.txt
-    if [ -z "$proxy_ip" ]; then
-      echo "Error: unable to determine proxy IP"
-      exit 1
-    fi
-
-    export OMICS_NETWORK_PROXY=http://"$proxy_ip":"$proxy_port"
-    export http_proxy=${OMICS_NETWORK_PROXY}
+    # Configure the software to use the proxy server
+    export http_proxy="${OMICS_NETWORK_PROXY}"
 
     # Test the connection to the license server
     if sentieon licclnt ping; then
