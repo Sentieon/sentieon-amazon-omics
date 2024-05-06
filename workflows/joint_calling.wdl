@@ -5,8 +5,8 @@ version 1.0
 workflow distributed_gvcftyper {
   input {
     # Input gVCFs
-    #Array[File] gvcfs
-    File gvcf_list  # Input gVCF files; one file per line
+    Array[File] gvcfs
+    Array[File] gvcf_indexes
 
     # Reference genome files
     File ref_fasta
@@ -18,9 +18,7 @@ workflow distributed_gvcftyper {
     Int shard_size = 100000000  # The shard size, decrease for large joint calls
     String gvcftyper_memory = "32 GiB"
     String gvcftyper_threads = "16"
-    Int concurrent_downloads = 5
     Boolean debug = false
-    Boolean ramdisk = false
 
     # Settings for the merged output
     Int output_splits = 5  # Number of VCFs to split the output into
@@ -62,20 +60,19 @@ workflow distributed_gvcftyper {
     #  DistributedGvcfyper.shard_tbis - [tbi1, tbi2, ...]
     call DistributedGvcfyper {
       input:
-        gvcf_list = gvcf_list,
+        gvcfs = gvcfs,
+        gvcf_indexes = gvcf_indexes,
         ref_fasta = ref_fasta,
         ref_fai = ref_fai,
         gvcftyper_shards = GenerateShards.gvcftyper_shards[i],
         gvcftyper_memory = gvcftyper_memory,
         gvcftyper_threads = gvcftyper_threads,
-        concurrent_downloads = concurrent_downloads,
         dbsnp_vcf = dbsnp_vcf,
         dbsnp_vcf_tbi = dbsnp_vcf_tbi,
         driver_xargs = driver_xargs,
         gvcftyper_xargs = gvcftyper_xargs,
         sentieon_docker = sentieon_docker,
         debug = debug,
-        ramdisk = ramdisk,
 
         canonical_user_id = canonical_user_id,
         sentieon_license = sentieon_license,
@@ -114,8 +111,6 @@ workflow distributed_gvcftyper {
     Array[Int] merge_start = GenerateShards.merge_start
     Int merge_size = GenerateShards.merge_size
     Array[String] merge_shards = GenerateShards.merge_shards
-    Array[File] out_shard_vcfs = flat_shard_vcfs
-    Array[File] out_shard_tbis = flat_shard_tbis
     Array[File] out_merge_vcfs = merged_vcfs
     Array[File] out_merge_tbis = merged_tbis
   }
@@ -174,8 +169,8 @@ task GenerateShards {
 task DistributedGvcfyper {
   input {
     # Input gVCFs
-    #Array[File] gvcfs
-    File gvcf_list  # Input gVCF files; one file per line
+    Array[File] gvcfs
+    Array[File] gvcf_indexes
 
     # Reference genome files
     File ref_fasta
@@ -186,10 +181,8 @@ task DistributedGvcfyper {
     # Settings for distribution
     String gvcftyper_memory = "64 GiB"
     String gvcftyper_threads = "16"
-    Int concurrent_downloads = 5
     String sentieon_docker
     Boolean debug = false
-    Boolean ramdisk = false
 
     # GVCFtyper arguments
     File? dbsnp_vcf
@@ -216,25 +209,44 @@ task DistributedGvcfyper {
     fi
 
     debug_arg=~{true="debug" false="" debug}
-    ramdisk_arg=~{true="ramdisk" false="" ramdisk}
 
     ln -s "~{ref_fasta}" ./ref.fa
     ln -s "~{ref_fai}" ./ref.fa.fai
 
     export VCFCACHE_BLOCKSIZE=4096
 
+    gvcf_list="input_gvcfs.txt"
+    gvcf_dir=input_gvcfs
+    mkdir -p "$gvcf_dir"
+    input_gvcfs=("~{sep='" "' gvcfs}")
+    input_gvcf_idxs=("~{sep='" "' gvcf_indexes}")
+    for i in "${!input_gvcfs[@]}"; do
+      gvcf="${input_gvcfs[$i]}"
+      idx="${input_gvcf_idxs[$i]}"
+
+      vcf_suffix=".vcf"
+      index_suffix=".idx"
+      if [[ $gvcf == *.gz ]]; then
+        vcf_suffix=".vcf.gz"
+        index_suffix=".tbi"
+      fi
+
+      ln -s "$gvcf" "$gvcf_dir"/sample_"$i""$vcf_suffix"
+      ln -s "$idx" "$gvcf_dir"/sample_"$i""$vcf_suffix""$index_suffix"
+
+      echo "$gvcf_dir"/sample_"$i""$vcf_suffix" >> "$gvcf_list"
+    done
+
     set +u
     /opt/sentieon/sharded_joint_call.py \
       --ref "./ref.fa" \
-      --gvcf_list "~{gvcf_list}" \
+      --gvcf_list "$gvcf_list" \
       --shards "~{sep='" "' gvcftyper_shards}" \
       ${debug_arg:+--debug} \
-      ${ramdisk_arg:+--ramdisk} \
       "${dbsnp_arg[@]}" \
       --driver_xargs "~{driver_xargs}" \
       --gvcftyper_xargs "~{gvcftyper_xargs}" \
-      --output_basename "shard_vcfs" \
-      --concurrent_downloads "~{concurrent_downloads}"
+      --output_basename "shard_vcfs"
     set -u
   >>>
   runtime {
