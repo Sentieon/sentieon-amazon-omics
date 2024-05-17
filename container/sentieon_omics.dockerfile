@@ -98,6 +98,7 @@ RUN amazon-linux-extras install -y epel awscli1 && \
       perl.x86_64 \
       tar \
       gzip \
+      procps \
       which && \
     yum -y clean all && rm -rf /var/cache
 
@@ -114,6 +115,7 @@ RUN sentieon driver --help && \
     samtools --help && \
     bcftools --help && \
     bedtools --help && \
-    aws --version
+    aws --version && \
+    ps --help
 
 COPY ./omics_credentials.sh /opt/sentieon/omics_credentials.sh
