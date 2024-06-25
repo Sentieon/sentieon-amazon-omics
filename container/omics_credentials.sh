@@ -24,6 +24,9 @@ AUTH_DATA_PATH=~/.sentieon/sentieon_license_encode
 SENTIEON_BUCKET_BASENAME="sentieon-omics-license"
 SLEEP_TIME=900
 
+INITIAL_LICENSE_ATTEMPTS=5
+INITIAL_LICENSE_SLEEP=15
+
 # Find the AWS Region
 if [ -z "${AWS_DEFAULT_REGION-}" ]; then
     set -e
@@ -47,9 +50,15 @@ if [ -n "$IS_DAEMON" ]; then
     done
 else
     # Check for a license token
-    aws s3 cp "$LICENSE_URI" "$LICENSE_TMP_PATH"
-    token_ok="$?"
-    if [ "$token_ok" -ne 0 ]; then
+    i=0
+    while [ $i -lt $INITIAL_LICENSE_ATTEMPTS ]; do
+        if aws s3 cp "$LICENSE_URI" "$LICENSE_TMP_PATH"; then
+            break
+        fi
+        sleep "$INITIAL_LICENSE_SLEEP"
+        i=$((i+1))
+    done
+    if [ $i -ge $INITIAL_LICENSE_ATTEMPTS ]; then
         echo -e "ERROR: Unable to access a license token at $LICENSE_URI.\nPlease email support@sentieon.com to request access to the Sentieon license for Amazon Omics"
         exit 1
     fi
