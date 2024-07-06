@@ -44,6 +44,8 @@ if [ -n "$IS_DAEMON" ]; then
     # Refresh the license
     while true; do
         sleep "$SLEEP_TIME"
+        LICENSE_SLEEP=$(awk -v seed=$RANDOM -v s_time=$INITIAL_LICENSE_SLEEP 'BEGIN{srand(seed); print rand() * s_time}')
+        sleep "$LICENSE_SLEEP"
         if aws s3 cp "$LICENSE_URI" "$LICENSE_TMP_PATH"; then
             <"$LICENSE_TMP_PATH" base64 > "$AUTH_DATA_PATH"
         fi
@@ -55,7 +57,8 @@ else
         if aws s3 cp "$LICENSE_URI" "$LICENSE_TMP_PATH"; then
             break
         fi
-        sleep "$INITIAL_LICENSE_SLEEP"
+        LICENSE_SLEEP=$(awk -v seed=$RANDOM -v s_time=$INITIAL_LICENSE_SLEEP 'BEGIN{srand(seed); print rand() * s_time}')
+        sleep "$LICENSE_SLEEP"
         i=$((i+1))
     done
     if [ $i -ge $INITIAL_LICENSE_ATTEMPTS ]; then
