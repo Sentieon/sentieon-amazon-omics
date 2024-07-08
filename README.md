@@ -1,13 +1,13 @@
 # Sentieon-Amazon-Omics
-Sentieon pipelines for Amazon Omics
+Sentieon pipelines for AWS HealthOmics
 
 ## Introduction
 
-Sentieon supports bioinformatic workflows running on [Amazon Omics](https://aws.amazon.com/omics/). The files in this repository can be used to run Sentieon pipelines as private workflows on Amazon Omics or you can use this repository as a starting point for developing customized pipeines that utilize the Sentieon software.
+Sentieon supports bioinformatic workflows running on [AWS HealthOmics](https://aws.amazon.com/healthomics/). The files in this repository can be used to run Sentieon pipelines as private workflows on AWS HealthOmics or you can use this repository as a starting point for developing customized pipelines that utilize the Sentieon software.
 
-The Sentieon software is a commerical software package and a license is required to run the software. To support workflows running on Amazon Omics, Sentieon operates a dedicated license server for Amazon Omics workflows.
+The Sentieon software is a commercial software package and a license is required to run the software. To support workflows running on AWS HealthOmics, Sentieon operates a dedicated license server for AWS HealthOmics workflows.
 
-To use the license server for Amazon Omics, you will need to provide Sentieon (support@sentieon.com) your AWS Canonical User ID. You can find your canonical ID by following the instructions at the following link, https://docs.aws.amazon.com/AmazonS3/latest/userguide/finding-canonical-user-id.html.
+To use the license server for AWS HealthOmics, you will need to provide Sentieon (support@sentieon.com) your AWS Canonical User ID. You can find your canonical ID by following the instructions at the following link, https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-identifiers.html#FindCanonicalId.
 
 ## Running Sentieon pipelines as private workflows
 
@@ -18,10 +18,10 @@ To use the license server for Amazon Omics, you will need to provide Sentieon (s
 ### Step 1: build the Sentieon container image
 
 The following files are in the [`container`](/container) directory:
-* `sentieon_omics.dockerfile`: A dockerfile that can be used to create a Sentieon container image for Amazon Omics
-* `omics_credentials.sh`: a shell script to perform license authentication on Amazon Omics
+* `sentieon_omics.dockerfile`: A dockerfile that can be used to create a Sentieon container image for AWS HealthOmics
+* `omics_credentials.sh`: a shell script to perform license authentication on AWS HealthOmics
 
-To build the container image for the lastest version of Sentieon, run:
+To build the container image for the latest version of Sentieon, run:
 ```bash
 cd ./container
 docker build --platform linux/amd64 --build-arg SENTIEON_VERSION=202112.07 -t sentieon:omics-1 -f sentieon_omics.dockerfile .
@@ -48,15 +48,15 @@ docker tag sentieon:omics-1 <account-id>.dkr.ecr.<region-name>.amazonaws.com/sen
 docker push <account-id>.dkr.ecr.<region-name>.amazonaws.com/sentieon:omics-1
 ```
 
-Grant the Omics service permission to interact with the repository using the policy in the `assets` directory
+Grant the HealthOmics service permission to interact with the repository using the policy in the `assets` directory
 
 ```bash
 aws ecr set-repository-policy --repository-name sentieon --policy-text file://assets/omics-ecr-repository-policy.json
 ```
 
-### Step 3: grant the Omics service role read access to the Sentieon license bucket in AWS s3
+### Step 3: grant the HealthOmics service role read access to the Sentieon license bucket in AWS s3
 
-As part of the license validation, the `omics_credentials.sh` script will obtain a license token from AWS s3 for your workflow. Adding the following policy to your Amazon Omics service role will grant the workflow read access to files in the license bucket for your region:
+As part of the license validation, the `omics_credentials.sh` script will obtain a license token from AWS s3 for your workflow. Adding the following policy to your AWS HealthOmics service role will grant the workflow read access to files in the license bucket for your region:
 ```json
 {
     "Version": "2012-10-17",
@@ -75,9 +75,9 @@ As part of the license validation, the `omics_credentials.sh` script will obtain
 }
 ```
 
-### Step 4: create an example workflow on Amazon Omics
+### Step 4: create an example workflow on AWS HealthOmics
 
-We are now ready to create Sentieon workflows on Amazon Omics. Running the following command at the start of the workflow will configure the environment for the Sentieon software:
+We are now ready to create Sentieon workflows on AWS HealthOmics. Running the following command at the start of the workflow will configure the environment for the Sentieon software:
 
 ```bash
 source /opt/sentieon/omics_credentials.sh <SENTIEON_LICENSE> <CANONICAL_USER_ID>
@@ -114,7 +114,7 @@ The `create-workflow` command will output some information including the workflo
 
 ### Step 5: run the example workflow
 
-To run the example workflow, modify the `examples/test.parameters.json` file replacing `<canonical-id>`, `<account-id>`, and `<region-name>` to match your environment. Then run the following, using the `workflow-id` from the `create-workflow` command and the `role-name` for your Amazon Omics service role:
+To run the example workflow, modify the `examples/test.parameters.json` file replacing `<canonical-id>`, `<account-id>`, and `<region-name>` to match your environment. Then run the following, using the `workflow-id` from the `create-workflow` command and the `role-name` for your AWS HealthOmics service role:
 
 ```bash
 aws omics start-run \
@@ -202,6 +202,6 @@ EVENTS  1682357406252   499968  1682357400539
 
 ## Next steps
 
-Congratulations! You've successfully run a test workflow with the Sentieon software on Amazon Omics. Feel free to update/extend the example workflow to implement your own custom pipelines with the Sentieon software.
+Congratulations! You've successfully run a test workflow with the Sentieon software on AWS HealthOmics. Feel free to update/extend the example workflow to implement your own custom pipelines with the Sentieon software.
 
-Alternatively, you can find full pipeline implmentations in the [`workflows`](/workflows) directory that you can modify or implement as private workflows.
+Alternatively, you can find full pipeline implementations in the [`workflows`](/workflows) directory that you can modify or implement as private workflows.
