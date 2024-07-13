@@ -14,6 +14,9 @@ process SentieonLicence {
         source /opt/sentieon/omics_credentials.sh "${params.sentieon_license}" "${params.canonical_user_id}"
         set -e
 
+        # Find the PID of the daemon process
+        daemon_pid=\$(pgrep -f omics_credentials)
+
         # Test Sentieon commands
         sentieon licclnt ping && echo "Ping is OK"
         sentieon licclnt query Haplotyper
@@ -25,6 +28,9 @@ process SentieonLicence {
         echo "License OK" >license_ok.txt
         unset http_proxy https_proxy
         sleep 10
+
+        # Kill the daemon process
+        kill \$daemon_pid
         """
 }
 
