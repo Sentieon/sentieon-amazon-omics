@@ -12,11 +12,12 @@ import os
 import pathlib
 import shutil
 import sys
+import tempfile
 
 from typing import Any, Optional
 
 DOWNLOAD_CMD = (
-    "bcftools view --no-version -r {shard} --threads 2 -o {gvcf_dest} {gvcf} && "
+    "bcftools view --no-version -R {shard} --threads 2 -o {gvcf_dest} {gvcf} && "
     "bcftools index --threads 2 -t {gvcf_dest}"
 )
 
@@ -316,8 +317,18 @@ async def main(argv: argparse.Namespace) -> int:
     # Read the list of gVCFs
     gvcf_list = argv.gvcf_list.read().rstrip().split("\n")
 
-    shards_to_process: list[str] = argv.shards
     downloaded_shards: list[tuple[int, str]] = []
+
+    # Write the shards to files
+    shards_to_process: list[str] = []
+    for shard in argv.shards:
+        fn = tempfile.NamedTemporaryFile(mode="w", suffix=".bed", delete=False)
+        shards_to_process.append(fn.name)
+        for region in shard.split(','):
+            contig, coords = region.rsplit(':', 1)
+            start, stop = coords.split('-', 1)
+            print("\t".join((contig, start, stop)), file=fn)
+        fn.close()
 
     running_downloads: list[asyncio.Task[tuple[int, int, str]]] = []
     running_shards: list[asyncio.Task[int]] = []

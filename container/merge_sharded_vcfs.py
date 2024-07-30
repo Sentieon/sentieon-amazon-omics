@@ -58,15 +58,28 @@ def main(argv: argparse.Namespace) -> int:
 
     vcf_list = argv.vcfs
     vcf_str = " ".join(vcf_list)
-    region = argv.region
     output = argv.output
 
     tmpdir = tempfile.mkdtemp()
     vcf_fifo = os.path.join(tmpdir, "merged_tmp.vcf.gz")
     os.mkfifo(vcf_fifo)
 
+    region_tmp_file = tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".bed",
+        delete=False,
+    )
+    region_tmp_file_name = region_tmp_file.name
+    for region in argv.region.split(','):
+        contig, coords = region.rsplit(':', 1)
+        start, stop = coords.split('-', 1)
+        print("\t".join((contig, start, stop)), file=region_tmp_file)
+    region_tmp_file.close()
+
     subset_cmd = (
-        f"cat {vcf_fifo} | bcftools view -t {region} | sentieon util vcfconvert - {output}"
+        f"cat {vcf_fifo} "
+        f"| bcftools view -T {region_tmp_file_name} "
+        f"| sentieon util vcfconvert - {output}"
     )
     logging.debug("Running: %s", subset_cmd)
     subset_p = subprocess.Popen(subset_cmd, shell=True)

@@ -207,6 +207,25 @@ task DistributedGvcfyper {
     source /opt/sentieon/omics_credentials.sh "~{sentieon_license}" "~{canonical_user_id}"
     set -exvuo pipefail
 
+    function renew_aws_credentials() {
+        RESPONSE=$(curl --noproxy '*' 169.254.170.2$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI)
+        export AWS_ACCESS_KEY_ID=$(echo "$RESPONSE" | jq -r '.AccessKeyId')
+        export AWS_SECRET_ACCESS_KEY=$(echo "$RESPONSE" | jq -r '.SecretAccessKey')
+        export AWS_SESSION_TOKEN=$(echo "$RESPONSE" | jq -r '.Token')
+    }
+
+    # Initial credentials fetch
+    renew_aws_credentials
+
+    # Start a background process to renew the credentials periodically
+    while true; do
+        sleep 300  # Refresh every 5 minutes (adjust as needed)
+        renew_aws_credentials
+    done &
+
+    CRED_PID=$(echo $!)
+    echo "Started Credential Process with ID: " $CRED_PID
+
     dbsnp_arg=()
     dbsnp_vcf=~{default="" dbsnp_vcf}
     if [[ -n "$dbsnp_vcf" ]]; then
@@ -236,6 +255,9 @@ task DistributedGvcfyper {
       --output_basename "shard_vcfs" \
       --concurrent_downloads "~{concurrent_downloads}"
     set -u
+
+    echo "Stopping Credential Process: " $CRED_PID
+    kill -9 $CRED_PID
   >>>
   runtime {
     docker: sentieon_docker
