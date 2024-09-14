@@ -190,8 +190,17 @@ task DownloadReference {
   command <<<
     set -exvuo pipefail
 
+    if [ -z "${AWS_DEFAULT_REGION-}" ]; then
+      set -e
+      curl "${ECS_CONTAINER_METADATA_URI_V4}/task" > tmp_task.json
+      AWS_DEFAULT_REGION=$(<tmp_task.json jq -rM '.AvailabilityZone' | sed 's/.$//')
+      export AWS_DEFAULT_REGION
+      rm tmp_task.json
+      set +e
+    fi
+
     ref_build=~{reference_name}
-    s3_bucket_basename="s3://omics-us-west-2/reference"
+    s3_bucket_basename="s3://omics-$AWS_DEFAULT_REGION/reference"
     ref_idx_files=(
       ""
       ".fai"
