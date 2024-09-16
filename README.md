@@ -15,6 +15,10 @@ To use the license server for AWS HealthOmics, you will need to provide Sentieon
 * Docker cli or another container implementation (Podman, etc.)
 * AWS CLI v2
 
+### Step 0: Add your account to the allowlist for the AWS HealthOmics proxy server
+
+Generate an AWS support case to get access to the Sentieon license server proxy. To create a support case, navigate to https://support.console.aws.amazon.com/. Provide your AWS account and Region in the support case. Your account will be added to the allowlist for the license server proxy.
+
 ### Step 1: build the Sentieon container image
 
 The following files are in the [`container`](/container) directory:
