@@ -30,7 +30,7 @@ process SentieonLicence {
         sleep 10
 
         # Kill the daemon process
-        kill \$daemon_pid
+        kill \$(ps -s \$daemon_pid -o pid=)
         """
 }
 
