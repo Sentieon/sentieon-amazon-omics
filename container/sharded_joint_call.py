@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import asyncio.subprocess
+import datetime
 import logging
 import os
 import pathlib
@@ -16,10 +17,15 @@ import tempfile
 
 from typing import Any, Optional
 
+import requests
+
 DOWNLOAD_CMD = (
     "bcftools view --no-version -R {shard} --threads 2 -o {gvcf_dest} {gvcf} && "
     "bcftools index --threads 2 -t {gvcf_dest}"
 )
+
+METADATA_SERVER = "169.254.170.2" + os.environ["AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"]
+os.environ.pop("http_proxy", None)
 
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
@@ -94,6 +100,12 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--ramdisk",
         help="Use a ramdisk to store partial gVCFs",
         action="store_true",
+    )
+    parser.add_argument(
+        "--refresh_credentials",
+        type=int,
+        default=300,
+        help="How often to refresh credentials (in seconds)",
     )
     return parser.parse_args(argv)
 
@@ -311,6 +323,15 @@ async def run_shard(
     return 0
 
 
+def renew_aws_credentials():
+    """Refresh AWS credentials"""
+    response = requests.get(METADATA_SERVER)
+    response_data = response.json()
+    os.environ["AWS_ACCESS_KEY_ID"] = response_data["AccessKeyId"]
+    os.environ["AWS_SECRET_ACCESS_KEY"] = response_data["SecretAccessKey"]
+    os.environ["AWS_SESSION_TOKEN"] = response_data["Token"]
+
+
 async def main(argv: argparse.Namespace) -> int:
     """Main function"""
 
@@ -329,6 +350,10 @@ async def main(argv: argparse.Namespace) -> int:
             start, stop = coords.split('-', 1)
             print("\t".join((contig, start, stop)), file=fn)
         fn.close()
+
+    # Initial credentials fetch
+    renew_aws_credentials()
+    last_credentials_at = datetime.datetime.now()
 
     running_downloads: list[asyncio.Task[tuple[int, int, str]]] = []
     running_shards: list[asyncio.Task[int]] = []
@@ -361,6 +386,13 @@ async def main(argv: argparse.Namespace) -> int:
             running_downloads.pop(i)
 
         if shards_to_process and not running_downloads and not downloaded_shards:
+            # Check if credentials need to be refreshed
+            now = datetime.datetime.now()
+            dt = now - last_credentials_at
+            if dt.total_seconds() > argv.refresh_credentials:
+                renew_aws_credentials()
+                last_credentials_at = now
+
             # Download the next shard to process
             shard_idx += 1
             cur_shard = shards_to_process.pop(0)

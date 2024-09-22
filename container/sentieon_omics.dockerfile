@@ -108,6 +108,9 @@ ENV LD_PRELOAD=/usr/local/lib/libjemalloc.so.2
 # A default jemalloc configuration that should work well for most use-cases, see http://jemalloc.net/jemalloc.3.html
 ENV MALLOC_CONF=metadata_thp:auto,background_thread:true,dirty_decay_ms:30000,muzzy_decay_ms:30000
 
+# Install python dependencies
+RUN pip3 install --no-cache-dir requests
+
 # Test the container
 RUN sentieon driver --help && \
     igzip --help && \
