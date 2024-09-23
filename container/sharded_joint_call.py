@@ -24,8 +24,7 @@ DOWNLOAD_CMD = (
     "bcftools index --threads 2 -t {gvcf_dest}"
 )
 
-METADATA_SERVER = "169.254.170.2" + os.environ["AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"]
-os.environ.pop("http_proxy", None)
+METADATA_SERVER = "http://169.254.170.2" + os.environ["AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"]
 
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
@@ -325,7 +324,9 @@ async def run_shard(
 
 def renew_aws_credentials():
     """Refresh AWS credentials"""
+    http_proxy = os.environ.pop("http_proxy", None)
     response = requests.get(METADATA_SERVER)
+    os.environ["http_proxy"] = http_proxy
     response_data = response.json()
     os.environ["AWS_ACCESS_KEY_ID"] = response_data["AccessKeyId"]
     os.environ["AWS_SECRET_ACCESS_KEY"] = response_data["SecretAccessKey"]
