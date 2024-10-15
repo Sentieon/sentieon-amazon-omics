@@ -27,6 +27,33 @@ DOWNLOAD_CMD = (
 METADATA_SERVER = "http://169.254.170.2" + os.environ["AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"]
 
 
+class CredentialsContainer:
+    """A container for the AWS credentials refresh"""
+    def __init__(self, refresh_after:int = 300):
+        self.refresh_after = refresh_after
+        self.renew_aws_credentials()
+        self.last_refresh = datetime.datetime.now()
+
+    def renew_aws_credentials(self):
+        """Refresh AWS credentials"""
+        http_proxy = os.environ.pop("http_proxy", None)
+        response = requests.get(METADATA_SERVER, timeout=10.0)
+        if http_proxy is not None:
+            os.environ["http_proxy"] = http_proxy
+        response_data = response.json()
+        os.environ["AWS_ACCESS_KEY_ID"] = response_data["AccessKeyId"]
+        os.environ["AWS_SECRET_ACCESS_KEY"] = response_data["SecretAccessKey"]
+        os.environ["AWS_SESSION_TOKEN"] = response_data["Token"]
+
+    def refresh_if_needed(self):
+        """Refresh credentials if necessary"""
+        now = datetime.datetime.now()
+        dt = now - self.last_refresh
+        if dt.total_seconds() > self.refresh_after:
+            self.renew_aws_credentials()
+            self.last_refresh = datetime.datetime.now()
+
+
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     """Parse arguments"""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -146,6 +173,7 @@ async def download_shard(
     shard: str,
     shard_idx: int,
     n_concurrent: int,
+    credentials: CredentialsContainer,
     download_retries: int = 5,
     ramdisk: bool = False,
 ) -> tuple[int, int, str]:
@@ -192,6 +220,7 @@ async def download_shard(
                     )
                     return (-1, shard_idx, shard)
 
+                credentials.refresh_if_needed()
                 download_ret = await download_gvcf(
                     shard=shard,
                     gvcf=gvcf,
@@ -207,6 +236,7 @@ async def download_shard(
         gvcf = gvcf_list[cur_gvcf]
         gvcf_dest = f"{base_dir}/sample_{cur_gvcf}.g.vcf.gz"
 
+        credentials.refresh_if_needed()
         download_ret = await download_gvcf(
             shard=shard,
             gvcf=gvcf,
@@ -241,6 +271,7 @@ async def download_shard(
                 )
                 return (-1, shard_idx, shard)
 
+            credentials.refresh_if_needed()
             download_ret = await download_gvcf(
                 shard=shard,
                 gvcf=gvcf,
@@ -261,6 +292,7 @@ async def download_shard(
             shard,
             gvcf,
         )
+        credentials.refresh_if_needed()
         download_ret = await download_gvcf(shard, gvcf, gvcf_dest)
         proc = download_ret[0]
         ret = await proc.wait()
@@ -322,17 +354,6 @@ async def run_shard(
     return 0
 
 
-def renew_aws_credentials():
-    """Refresh AWS credentials"""
-    http_proxy = os.environ.pop("http_proxy", None)
-    response = requests.get(METADATA_SERVER)
-    os.environ["http_proxy"] = http_proxy
-    response_data = response.json()
-    os.environ["AWS_ACCESS_KEY_ID"] = response_data["AccessKeyId"]
-    os.environ["AWS_SECRET_ACCESS_KEY"] = response_data["SecretAccessKey"]
-    os.environ["AWS_SESSION_TOKEN"] = response_data["Token"]
-
-
 async def main(argv: argparse.Namespace) -> int:
     """Main function"""
 
@@ -353,8 +374,7 @@ async def main(argv: argparse.Namespace) -> int:
         fn.close()
 
     # Initial credentials fetch
-    renew_aws_credentials()
-    last_credentials_at = datetime.datetime.now()
+    credentials = CredentialsContainer(argv.refresh_credentials)
 
     running_downloads: list[asyncio.Task[tuple[int, int, str]]] = []
     running_shards: list[asyncio.Task[int]] = []
@@ -387,13 +407,6 @@ async def main(argv: argparse.Namespace) -> int:
             running_downloads.pop(i)
 
         if shards_to_process and not running_downloads and not downloaded_shards:
-            # Check if credentials need to be refreshed
-            now = datetime.datetime.now()
-            dt = now - last_credentials_at
-            if dt.total_seconds() > argv.refresh_credentials:
-                renew_aws_credentials()
-                last_credentials_at = now
-
             # Download the next shard to process
             shard_idx += 1
             cur_shard = shards_to_process.pop(0)
@@ -404,6 +417,7 @@ async def main(argv: argparse.Namespace) -> int:
                         cur_shard,
                         shard_idx,
                         argv.concurrent_downloads,
+                        credentials,
                         download_retries=argv.download_retries,
                         ramdisk=argv.ramdisk,
                     )
