@@ -19,8 +19,8 @@ if [ "${#CANONICAL_USER_ID}" -ne 64 ]; then
 fi
 
 
-LICENSE_TMP_PATH=~/.sentieon/sentieon_license
-AUTH_DATA_PATH=~/.sentieon/sentieon_license_encode
+LICENSE_TMP_PATH=/dev/shm/sentieon_license
+AUTH_DATA_PATH=/dev/shm/sentieon_license_encode
 SENTIEON_BUCKET_BASENAME="sentieon-omics-license"
 SLEEP_TIME=900
 
@@ -47,7 +47,9 @@ if [ -n "$IS_DAEMON" ]; then
         LICENSE_SLEEP=$(awk -v seed=$RANDOM -v s_time=$INITIAL_LICENSE_SLEEP 'BEGIN{srand(seed); print rand() * s_time}')
         sleep "$LICENSE_SLEEP"
         if aws s3 cp "$LICENSE_URI" "$LICENSE_TMP_PATH"; then
-            <"$LICENSE_TMP_PATH" base64 > "$AUTH_DATA_PATH"
+            # Encode and then move to prevent a race condition
+            <"$LICENSE_TMP_PATH" base64 > /dev/shm/sentieon_license_tmp
+            mv /dev/shm/sentieon_license_tmp "$AUTH_DATA_PATH"
         fi
     done
 else
@@ -70,7 +72,7 @@ else
     # Configure the environment for the Sentieon tools
     export SENTIEON_LICENSE
     export SENTIEON_AUTH_MECH=aws_omics_service
-    export SENTIEON_AUTH_DATA=~/.sentieon/sentieon_license_encode
+    export SENTIEON_AUTH_DATA="$AUTH_DATA_PATH"
     SENTIEON_JOB_TAG=$(<"$LICENSE_TMP_PATH" jq '.job_tag')
     export SENTIEON_JOB_TAG
 
