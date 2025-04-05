@@ -171,6 +171,7 @@ async def download_gvcf(
 async def download_shard(
     gvcf_list: list[str],
     shard: str,
+    shard_str: str,
     shard_idx: int,
     n_concurrent: int,
     credentials: CredentialsContainer,
@@ -307,7 +308,7 @@ async def download_shard(
     logging.info(
         "Download finished for shard index '%s' and shard: %s", shard_idx, shard
     )
-    return (0, shard_idx, shard)
+    return (0, shard_idx, shard, shard_str)
 
 
 async def run_shard(
@@ -315,6 +316,7 @@ async def run_shard(
     ref: str,
     n_samples: int,
     shard: str,
+    shard_str: str,
     shard_idx: int,
     driver_xargs: str = "",
     algo_xargs: str = "",
@@ -333,7 +335,7 @@ async def run_shard(
 
     dbsnp_arg = "--dbsnp {dbsnp}" if dbsnp else ""
     run_cmd = (
-        f"sentieon driver -r {ref} --shard {shard} {driver_xargs} "
+        f"sentieon driver -r {ref} --shard {shard_str} {driver_xargs} "
         f"--algo GVCFtyper {algo_xargs} {dbsnp_arg} "
         f"{basename}_shard-{shard_idx}.vcf.gz -"
     )
@@ -364,6 +366,7 @@ async def main(argv: argparse.Namespace) -> int:
 
     # Write the shards to files
     shards_to_process: list[str] = []
+    shards_as_strs: list[str] = argv.shards
     for shard in argv.shards:
         fn = tempfile.NamedTemporaryFile(mode="w", suffix=".bed", delete=False)
         shards_to_process.append(fn.name)
@@ -410,11 +413,13 @@ async def main(argv: argparse.Namespace) -> int:
             # Download the next shard to process
             shard_idx += 1
             cur_shard = shards_to_process.pop(0)
+            cur_shard_str = shards_as_strs.pop(0)
             running_downloads.append(
                 asyncio.create_task(
                     download_shard(
                         gvcf_list,
                         cur_shard,
+                        cur_shard_str,
                         shard_idx,
                         argv.concurrent_downloads,
                         credentials,
@@ -438,7 +443,7 @@ async def main(argv: argparse.Namespace) -> int:
 
         if not running_shards and downloaded_shards:
             # Run the next shard
-            shard_idx, shard = downloaded_shards.pop()
+            shard_idx, shard, shard_str = downloaded_shards.pop()
             dbsnp_arg = None
             if hasattr(argv, "dbsnp") and hasattr(argv.dbsnp, "name"):
                 dbsnp_arg = argv.dbsnp.name
@@ -449,6 +454,7 @@ async def main(argv: argparse.Namespace) -> int:
                         argv.ref.name,
                         len(gvcf_list),
                         shard,
+                        shard_str,
                         shard_idx,
                         driver_xargs=argv.driver_xargs,
                         algo_xargs=argv.gvcftyper_xargs,
