@@ -37,8 +37,7 @@ workflow sentieon_somatic {
     String calling_algo_xargs = ""
 
     # Sentieon license configuration
-    String canonical_user_id
-    String sentieon_license = "aws-omics.sentieon.com:9011"
+    String sentieon_license
 
     # Execution
     String n_threads = "32"
@@ -49,7 +48,6 @@ workflow sentieon_somatic {
   # Perform a license check
   call SentieonLicense {
     input:
-      canonical_user_id = canonical_user_id,
       sentieon_license = sentieon_license,
       sentieon_docker = sentieon_docker,
   }
@@ -100,7 +98,6 @@ workflow sentieon_somatic {
       calling_algo_xargs = calling_algo_xargs,
 
       license_ok = SentieonLicense.license_ok,
-      canonical_user_id = canonical_user_id,
       sentieon_license = sentieon_license,
 
       n_threads = n_threads,
@@ -157,19 +154,16 @@ workflow sentieon_somatic {
 
 task SentieonLicense {
   input {
-    String canonical_user_id
-    String sentieon_license = "aws-omics.sentieon.com:9011"
+    String sentieon_license
     String sentieon_docker
   }
   command <<<
-    set -xv
-    source /opt/sentieon/omics_credentials.sh "~{sentieon_license}" "~{canonical_user_id}"
     set -exvuo pipefail
+    export SENTIEON_LICENSE="~{sentieon_license}"
 
     sentieon licclnt ping && echo "Ping is OK"
     sentieon licclnt query Haplotyper
     echo "License OK" >license_ok.txt
-    unset http_proxy
   >>>
   runtime {
     preemptible: 3
@@ -353,8 +347,7 @@ task SentieonSomatic {
 
     # Sentieon license configuration
     File license_ok
-    String canonical_user_id
-    String sentieon_license = "aws-omics.sentieon.com:9011"
+    String sentieon_license
 
     # Execution
     String n_threads = "32"
@@ -366,9 +359,8 @@ task SentieonSomatic {
     Boolean has_normal = length(normal_r1_fastq) > 0
   }
   command <<<
-    set -xv
-    source /opt/sentieon/omics_credentials.sh "~{sentieon_license}" "~{canonical_user_id}"
     set -exvuo pipefail
+    export SENTIEON_LICENSE="~{sentieon_license}"
 
     # Get the NUMA configuration
     numa_nodes=$(lscpu | grep "NUMA node(s):" | sed 's/^NUMA node.* //')
@@ -655,7 +647,6 @@ task SentieonSomatic {
       --orientation_priors "sample_orientation" \
       "sample_tnhap2.vcf.gz"
     wait
-    unset http_proxy
     exit 0
   >>>
   runtime {

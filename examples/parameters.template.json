@@ -1,6 +1,6 @@
 {
-    "canonical_user_id": {
-        "description": "aws canonical user id"
+    "sentieon_license": {
+        "description": "Sentieon license server IP address or hostname (FQDN) and port"
     },
     "sentieon_docker": {
         "description": "ECR image URI for sentieon container image"

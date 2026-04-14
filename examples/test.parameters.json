@@ -1,4 +1,4 @@
 {
-    "canonical_user_id": "<canonical-id>",
+    "sentieon_license": "<sentieon-license>",
     "sentieon_docker": "<account-id>.dkr.ecr.<region-name>.amazonaws.com/sentieon:omics-1"
 }

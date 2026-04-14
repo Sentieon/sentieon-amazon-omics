@@ -11,8 +11,8 @@
   "longreadsv_model": {
     "description": "The LongReadSV model file"
   },
-  "canonical_user_id": {
-    "description": "Your account's AWS canonical user ID. Used to acquire a Sentieon license"
+  "sentieon_license": {
+    "description": "Sentieon license server IP address or hostname (FQDN) and port"
   },
   "sentieon_docker": {
     "description": "Sentieon docker image"

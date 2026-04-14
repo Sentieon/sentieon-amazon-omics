@@ -22,8 +22,7 @@ workflow sentieon_longread {
     String longreadsv_xargs = ""
 
     # Sentieon license configuration
-    String canonical_user_id
-    String sentieon_license = "aws-omics.sentieon.com:9011"
+    String sentieon_license
 
     # Execution
     String n_threads = "32"
@@ -34,7 +33,6 @@ workflow sentieon_longread {
   # Perform a license check
   call SentieonLicense {
     input:
-      canonical_user_id = canonical_user_id,
       sentieon_license = sentieon_license,
       sentieon_docker = sentieon_docker,
   }
@@ -66,7 +64,6 @@ workflow sentieon_longread {
       longreadsv_xargs = longreadsv_xargs,
 
       license_ok = SentieonLicense.license_ok,
-      canonical_user_id = canonical_user_id,
       sentieon_license = sentieon_license,
 
       n_threads = n_threads,
@@ -91,19 +88,16 @@ workflow sentieon_longread {
 
 task SentieonLicense {
   input {
-    String canonical_user_id
-    String sentieon_license = "aws-omics.sentieon.com:9011"
+    String sentieon_license
     String sentieon_docker
   }
   command <<<
-    set -xv
-    source /opt/sentieon/omics_credentials.sh "~{sentieon_license}" "~{canonical_user_id}"
     set -exvuo pipefail
+    export SENTIEON_LICENSE="~{sentieon_license}"
 
     sentieon licclnt ping && echo "Ping is OK"
     sentieon licclnt query Haplotyper
     echo "License OK" >license_ok.txt
-    unset http_proxy
   >>>
   runtime {
     preemptible: 3
@@ -271,8 +265,7 @@ task SentieonLongRead {
 
     # Sentieon license configuration
     File license_ok
-    String canonical_user_id
-    String sentieon_license = "aws-omics.sentieon.com:9011"
+    String sentieon_license
 
     # Execution
     String n_threads = "32"
@@ -281,9 +274,8 @@ task SentieonLongRead {
     String sentieon_docker
   }
   command <<<
-    set -xv
-    source /opt/sentieon/omics_credentials.sh "~{sentieon_license}" "~{canonical_user_id}"
     set -exvuo pipefail
+    export SENTIEON_LICENSE="~{sentieon_license}"
 
     # Configuration
     nt=$(nproc)
@@ -367,7 +359,6 @@ task SentieonLongRead {
       --interval "$CALLING_INTERVALS" \
       -t $nt --algo LongReadSV --model "~{longreadsv_model}" \
       ~{longreadsv_xargs} "sample_svs.vcf.gz"
-    unset http_proxy
     exit 0
   >>>
   runtime {
