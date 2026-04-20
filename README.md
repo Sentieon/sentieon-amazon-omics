@@ -5,7 +5,7 @@ Sentieon pipelines for AWS HealthOmics
 
 Sentieon supports bioinformatic workflows running on [AWS HealthOmics](https://aws.amazon.com/healthomics/). The files in this repository can be used to run Sentieon pipelines as private workflows on AWS HealthOmics or you can use this repository as a starting point for developing customized pipelines that utilize the Sentieon software.
 
-The Sentieon software is a commercial software package and a license is required to run the software. Users can operate a Sentieon license server inside their AWS VPC following the instructions in Sentieon's [`AWS Deployment Guide`](https://support.sentieon.com/docs/appnotes/aws_deployment/). Once a Sentieon license server is running in your VPC, you can use [`VPC networking`](https://docs.aws.amazon.com/omics/latest/dev/workflows-vpc-networking.html) to connect to the Sentieon license server in your HealthOmics workflows.
+The Sentieon software is a commercial software package and a license is required to run the software. Users can operate a Sentieon license server inside their Amazon VPC following the instructions in Sentieon's [`AWS Deployment Guide`](https://support.sentieon.com/docs/appnotes/aws_deployment/). Once a Sentieon license server is running in your VPC, you can use [`VPC networking`](https://docs.aws.amazon.com/omics/latest/dev/workflows-vpc-networking.html) to connect to the Sentieon license server in your HealthOmics workflows.
 
 ## Running Sentieon pipelines as private workflows
 
