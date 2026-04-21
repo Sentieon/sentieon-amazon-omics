@@ -3,14 +3,12 @@ version 1.1
 workflow sentieon_germline {
   input {
     # Sentieon license configuration
-    String canonical_user_id
     String sentieon_docker
-    String sentieon_license = "aws-omics.sentieon.com:9011"
+    String sentieon_license
   }
   # Perform a license check
   call SentieonLicense {
     input:
-      canonical_user_id = canonical_user_id,
       sentieon_docker = sentieon_docker,
       sentieon_license = sentieon_license,
   }
@@ -21,16 +19,12 @@ workflow sentieon_germline {
 
 task SentieonLicense {
   input {
-    String canonical_user_id
     String sentieon_docker
-    String sentieon_license = "aws-omics.sentieon.com:9011"
+    String sentieon_license
   }
   command <<<
-    set -xv
-
-    set +e
-    source /opt/sentieon/omics_credentials.sh "~{sentieon_license}" "~{canonical_user_id}"
-    set -e
+    set -exvuo pipefail
+    export SENTIEON_LICENSE="~{sentieon_license}"
 
     # Test Sentieon commands
     sentieon licclnt ping && echo "Ping is OK"
@@ -41,7 +35,6 @@ task SentieonLicense {
     #  sentieon driver ... --algo Haplotyper ...
 
     echo "License OK" >license_ok.txt
-    unset http_proxy https_proxy
     sleep 10
   >>>
   runtime {

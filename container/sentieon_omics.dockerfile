@@ -117,5 +117,3 @@ RUN sentieon driver --help && \
     bedtools --help && \
     aws --version && \
     ps --help
-
-COPY ./omics_credentials.sh /opt/sentieon/omics_credentials.sh

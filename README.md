@@ -5,9 +5,7 @@ Sentieon pipelines for AWS HealthOmics
 
 Sentieon supports bioinformatic workflows running on [AWS HealthOmics](https://aws.amazon.com/healthomics/). The files in this repository can be used to run Sentieon pipelines as private workflows on AWS HealthOmics or you can use this repository as a starting point for developing customized pipelines that utilize the Sentieon software.
 
-The Sentieon software is a commercial software package and a license is required to run the software. To support workflows running on AWS HealthOmics, Sentieon operates a dedicated license server for AWS HealthOmics workflows.
-
-To use the license server for AWS HealthOmics, you will need to provide Sentieon (support@sentieon.com) your AWS Canonical User ID. You can find your canonical ID by following the instructions at the following link, https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-identifiers.html#FindCanonicalId.
+The Sentieon software is a commercial software package and a license is required to run the software. Users can operate a Sentieon license server inside their Amazon VPC following the instructions in Sentieon's [`AWS Deployment Guide`](https://support.sentieon.com/docs/appnotes/aws_deployment/). Once a Sentieon license server is running in your VPC, you can use [`VPC networking`](https://docs.aws.amazon.com/omics/latest/dev/workflows-vpc-networking.html) to connect to the Sentieon license server in your HealthOmics workflows.
 
 ## Running Sentieon pipelines as private workflows
 
@@ -15,23 +13,22 @@ To use the license server for AWS HealthOmics, you will need to provide Sentieon
 * Docker cli or another container implementation (Podman, etc.)
 * AWS CLI v2
 
-### Step 0: Add your account to the allowlist for the AWS HealthOmics proxy server
+### Step 1: Start a Sentieon license server inside your AWS VPC
 
-Generate an AWS support case to get access to the Sentieon license server proxy. To create a support case, navigate to https://support.console.aws.amazon.com/. Provide your AWS account and Region in the support case. Your account will be added to the allowlist for the license server proxy.
+Please refer to the [`AWS Deployment Guide`](https://support.sentieon.com/docs/appnotes/aws_deployment/).
 
-### Step 1: build the Sentieon container image
+### Step 2: build the Sentieon container image
 
 The following files are in the [`container`](/container) directory:
 * `sentieon_omics.dockerfile`: A dockerfile that can be used to create a Sentieon container image for AWS HealthOmics
-* `omics_credentials.sh`: a shell script to perform license authentication on AWS HealthOmics
 
 To build the container image for the latest version of Sentieon, run:
 ```bash
 cd ./container
-docker build --platform linux/amd64 --build-arg SENTIEON_VERSION=202112.07 -t sentieon:omics-1 -f sentieon_omics.dockerfile .
+docker build --platform linux/amd64 --build-arg SENTIEON_VERSION=202503.03 -t sentieon:omics-1 -f sentieon_omics.dockerfile .
 ```
 
-### Step 2: push the container image to an Amazon ECR private repository
+### Step 3: push the container image to an Amazon ECR private repository
 
 Create a private repository in AWS ECR
 
@@ -58,35 +55,34 @@ Grant the HealthOmics service permission to interact with the repository using t
 aws ecr set-repository-policy --repository-name sentieon --policy-text file://assets/omics-ecr-repository-policy.json
 ```
 
-### Step 3: grant the HealthOmics service role read access to the Sentieon license bucket in AWS s3
+### Step 4: create a security group to enable your workflow to connect to the Sentieon license server and other AWS resources
 
-As part of the license validation, the `omics_credentials.sh` script will obtain a license token from AWS s3 for your workflow. Adding the following policy to your AWS HealthOmics service role will grant the workflow read access to files in the license bucket for your region:
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "s3:GetObjectAcl",
-                "s3:GetObject"
-            ],
-            "Resource": [
-                "arn:aws:s3:::sentieon-omics-license-<region>/*"
-            ]
-        }
-    ]
-}
+Please see the documentation on [`VPC-connected workflow`](https://docs.aws.amazon.com/omics/latest/dev/workflows-vpc-internet.html) to get started. The Sentieon software will need to connect to the Sentieon license server using TCP on the specified port.
+
+### Step 5: create a HealthOmics VPC configuration
+
+Create a VPC configuration for your HealthOmics workflow:
+
+```bash
+aws omics create-configuration \
+  --name <configuration_name> \
+  --run-configurations '{
+    "vpcConfig": {
+      "securityGroupIds": <security_groups>,
+      "subnetIds": <subnet_ids>
+    }
+  }' \
+  --region <region>
 ```
 
-### Step 4: create an example workflow on AWS HealthOmics
+### Step 6: create an example workflow on AWS HealthOmics
 
 We are now ready to create Sentieon workflows on AWS HealthOmics. Running the following command at the start of the workflow will configure the environment for the Sentieon software:
 
 ```bash
-source /opt/sentieon/omics_credentials.sh <SENTIEON_LICENSE> <CANONICAL_USER_ID>
+export SENTIEON_LICENSE=<SENTIEON_LICENSE>
 ```
-Where `<SENTIEON_LICENSE>` is the FQDN and port of the Sentieon license server and  `<CANONICAL_USER_ID>` is the AWS canonical user ID of the account running the workflow.
+Where `<SENTIEON_LICENSE>` is the IP address or FQDN and port of your Sentieon license server.
 
 Example workflows can be found in the [`examples`](/examples) directory and complete workflow implementations can be found in the [`workflows`](/workflows) directory.
 
@@ -99,7 +95,7 @@ aws omics create-workflow \
     --name test-sentieon-wdl \
     --engine WDL \
     --definition-zip fileb://examples/wdl/test_sentieon.wdl.zip \
-    --parameter-template file://examples/parameter.template.json
+    --parameter-template file://examples/parameters.template.json
 ```
 
 #### Nextflow
@@ -111,14 +107,14 @@ aws omics create-workflow \
     --engine NEXTFLOW \
     --main test_sentieon.nf \
     --definition-zip fileb://test_sentieon.nextflow.zip \
-    --parameter-template file://examples/parameter.template.json
+    --parameter-template file://examples/parameters.template.json
 ```
 
 The `create-workflow` command will output some information including the workflow-id.
 
-### Step 5: run the example workflow
+### Step 7: run the example workflow
 
-To run the example workflow, modify the `examples/test.parameters.json` file replacing `<canonical-id>`, `<account-id>`, and `<region-name>` to match your environment. Then run the following, using the `workflow-id` from the `create-workflow` command and the `role-name` for your AWS HealthOmics service role:
+To run the example workflow, modify the `examples/test.parameters.json` file replacing `<sentieon-license>`, `<account-id>`, and `<region-name>` to match your environment. Then run the following, using the `workflow-id` from the `create-workflow` command and the `role-name` for your AWS HealthOmics service role:
 
 ```bash
 aws omics start-run \
@@ -126,7 +122,9 @@ aws omics start-run \
     --workflow-id <workflow_id> \
     --name "test $(date +%Y%m%d-%H%M%S)" \
     --output-uri <s3-uri> \
-    --parameters file://examples/test.parameters.json
+    --parameters file://examples/test.parameters.json \
+    --networking-mode VPC \
+    --configuration-name <configuration_name>
 ```
 
 After ~20min, verify that the test workflow completes successfully:
@@ -145,7 +143,7 @@ You should see a response like:
     "name": "test 20230424-101437",
     "outputUri": "<s3-output-uri>",
     "parameters": {
-        "canonical_user_id": "<canonical_id>",
+        "sentieon_license": "<sentieon_license>",
         "sentieon_docker": "<account-id>.dkr.ecr.<region>.amazonaws.com/sentieon:omics"
     },
     "resourceDigests": {
