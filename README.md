@@ -22,6 +22,8 @@ Please refer to the [`AWS Deployment Guide`](https://support.sentieon.com/docs/a
 The following files are in the [`container`](/container) directory:
 * `sentieon_omics.dockerfile`: A dockerfile that can be used to create a Sentieon container image for AWS HealthOmics
 
+The image is based on Amazon Linux 2023 and ships the AWS CLI v2.
+
 To build the container image for the latest version of Sentieon, run:
 ```bash
 cd ./container
